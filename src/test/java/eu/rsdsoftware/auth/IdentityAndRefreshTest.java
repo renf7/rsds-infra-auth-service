@@ -32,5 +32,12 @@ class IdentityAndRefreshTest {
         for(String invalid:List.of("","missing","not.a-family",".".repeat(300))) assertTrue(service.rotate(invalid).isEmpty());
         assertTrue(service.rotate(null).isEmpty()); service.revoke(null); service.revoke("missing");
     }
+    @Test void expiredAndMissingRefreshFamiliesCannotBeUsed() {
+        var store=new InMemoryDocumentStore(); var service=new RefreshService(store);
+        String token=service.create("alice"), key="auth:v1:refresh:"+token.substring(0,token.indexOf('.'));
+        var row=store.get(key).orElseThrow(); var expired=new HashMap<>(row.values()); expired.put("expires","1");
+        store.replace(key,row.revision(),expired); assertTrue(service.rotate(token).isEmpty());
+        String missing=UUID.randomUUID()+".random"; assertTrue(service.rotate(missing).isEmpty()); service.revoke(missing);
+    }
 }
 

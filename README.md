@@ -79,3 +79,5 @@ Narrow SpotBugs `EI_EXPOSE_REP2` constructor annotations document intentionally 
 
 For production Apple, set Helm auth.appleKeySecretName to a private Secret containing apple.p8 (mounted only into auth). For local testing the runner generates a throwaway P-256 key; the fixture receives only its public key and verifies the actual ES256 client-secret JWT, including issuer/subject/audience/expiry. There is no local shortcut around Apple client-secret signing.
 
+
+Sonar rule S4502 is narrowly annotated on configureAppleCallbackCsrf only: Apple's external form_post callback cannot supply the application's CSRF token. The exact POST callback instead requires Spring's session-bound, one-use OAuth state and OIDC nonce; every other unsafe request retains CSRF validation. Real HTTP tests reject forged Apple state, other provider POST callbacks, callback subpaths, and refresh/logout without CSRF. This protocol exception has a 28 January 2027 review date; it is not a general CSRF exclusion or relaxed gate. The CSRF cookie itself is HttpOnly; the UI obtains its header token from the same-origin /csrf endpoint.

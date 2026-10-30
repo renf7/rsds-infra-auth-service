@@ -79,5 +79,19 @@ class ApiSecurityTest {
         assertTrue(invalid.headers().firstValue("Location").orElseThrow().contains("login=failed"));
         assertTrue(invalid.headers().allValues("Set-Cookie").stream().noneMatch(v -> v.startsWith("RSDS_ACCESS=") && !v.contains("Max-Age=0")));
     }
+    @Test void applePostExceptionStillRejectsForgedStateAndDoesNotApplyToOtherMutations() throws Exception {
+        get("/api/auth/oauth2/authorization/apple",null);
+        var request=HttpRequest.newBuilder(URI.create("http://localhost:"+port+"/api/auth/login/oauth2/code/apple"))
+            .header("Content-Type","application/x-www-form-urlencoded")
+            .POST(HttpRequest.BodyPublishers.ofString("code=forged&state=invalid")).build();
+        var invalid=client.send(request,HttpResponse.BodyHandlers.ofString());
+        assertEquals(302,invalid.statusCode());
+        assertTrue(invalid.headers().firstValue("Location").orElseThrow().contains("login=failed"));
+        assertTrue(invalid.headers().allValues("Set-Cookie").stream().noneMatch(v -> v.startsWith("RSDS_ACCESS=") && !v.contains("Max-Age=0")));
+        assertEquals(401,get("/api/auth/me",null).statusCode());
+        assertEquals(403,post("/api/auth/refresh",null,null).statusCode());
+        assertEquals(403,post("/api/auth/login/oauth2/code/google",null,null).statusCode());
+        assertEquals(403,post("/api/auth/login/oauth2/code/apple/extra",null,null).statusCode());
+    }
 }
 

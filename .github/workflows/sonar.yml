@@ -17,7 +17,9 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     env:
+      TEST_DYNAMO_ENDPOINT: http://127.0.0.1:8000
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SONAR_PROJECT_KEY: ${{ github.event.repository.name }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -27,6 +29,10 @@ jobs:
         with:
           distribution: temurin
           java-version: '27'
+      - name: Ensure the new Sonar project is public before analysis
+        run: python tools/security/sonar-public.py
+      - name: Start real DynamoDB Local for adapter and HTTP security contracts
+        run: docker run -d --name auth-contract-dynamodb -p 127.0.0.1:8000:8000 amazon/dynamodb-local:3.2.0 -jar DynamoDBLocal.jar -inMemory -sharedDb
       - name: Require token and analyze compiled Java with real coverage
         run: |
           test -n "$SONAR_TOKEN" || { echo 'Missing SONAR_TOKEN repository secret'; exit 1; }

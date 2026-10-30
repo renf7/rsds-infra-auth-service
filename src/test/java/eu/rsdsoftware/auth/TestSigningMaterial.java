@@ -10,7 +10,9 @@ final class TestSigningMaterial {
             directory=Files.createTempDirectory("rsds-auth-test-");
             String password=UUID.randomUUID().toString();
             Path storePath=directory.resolve("test.p12");
-            var process=new ProcessBuilder("keytool","-genkeypair","-alias","auth","-keyalg","RSA","-keysize","2048","-storetype","PKCS12","-keystore",storePath.toString(),"-storepass",password,"-dname","CN=rsds-auth-unit-only","-validity","2").redirectErrorStream(true).start();
+            String executable=System.getProperty("os.name").startsWith("Windows")?"keytool.exe":"keytool";
+            String keytool=Path.of(System.getProperty("java.home"),"bin",executable).toAbsolutePath().normalize().toString();
+            var process=new ProcessBuilder(keytool,"-genkeypair","-alias","auth","-keyalg","RSA","-keysize","2048","-storetype","PKCS12","-keystore",storePath.toString(),"-storepass",password,"-dname","CN=rsds-auth-unit-only","-validity","2").redirectErrorStream(true).start();
             process.getInputStream().readAllBytes();
             if(process.waitFor()!=0) throw new IllegalStateException("Test key generation failed");
             var store=KeyStore.getInstance("PKCS12");

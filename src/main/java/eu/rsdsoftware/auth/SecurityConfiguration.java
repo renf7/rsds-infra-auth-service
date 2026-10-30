@@ -17,13 +17,7 @@ import org.springframework.security.oauth2.server.resource.web.DefaultBearerToke
 public class SecurityConfiguration {
     @Bean SecurityFilterChain security(HttpSecurity http,ProviderRegistrations providers,AuthSettings settings,
             AppleClientSecret apple,IdentityService identities,TokenService tokens,RefreshService refresh,SessionCookies cookies) throws Exception {
-        var resolver=new DefaultOAuth2AuthorizationRequestResolver(providers,"/api/auth/oauth2/authorization");
-        resolver.setAuthorizationRequestCustomizer(builder -> builder.attributes(attributes -> {
-            String id=(String)attributes.get(OAuth2ParameterNames.REGISTRATION_ID);
-            if(Set.of("google","microsoft","github").contains(id)) OAuth2AuthorizationRequestCustomizers.withPkce().accept(builder);
-            if("apple".equals(id)) builder.additionalParameters(parameters -> parameters.put("response_mode","form_post"));
-            if(settings.local()) builder.authorizationUri("/__test/idp/"+id+"/authorize");
-        }));
+        var resolver=new LocalizedAuthorizationResolver(providers,settings);
         var tokenClient=new RestClientAuthorizationCodeTokenResponseClient();
         tokenClient.setParametersCustomizer(parameters -> {
             var appleRegistration=providers.findByRegistrationId("apple");
@@ -31,12 +25,13 @@ public class SecurityConfiguration {
                 parameters.set("client_secret",apple.create());
         });
         var headers=new DefaultBearerTokenResolver();
-        var csrfCookies=CookieCsrfTokenRepository.withHttpOnlyFalse();
+        var csrfCookies=new CookieCsrfTokenRepository();
         csrfCookies.setCookieCustomizer(cookie -> cookie.secure(!settings.local()).sameSite("Lax"));
         return http.authorizeHttpRequests(auth -> auth.requestMatchers("/api/auth/me").authenticated().anyRequest().permitAll())
             .csrf(csrf -> csrf.csrfTokenRepository(csrfCookies)
                 // Apple's response_mode=form_post is protected by Spring's one-use OAuth state/nonce validation.
-                .ignoringRequestMatchers("/api/auth/login/oauth2/code/apple"))
+                .requireCsrfProtectionMatcher(request -> org.springframework.security.web.csrf.CsrfFilter.DEFAULT_CSRF_MATCHER.matches(request)
+                    && !("POST".equals(request.getMethod()) && "/api/auth/login/oauth2/code/apple".equals(request.getServletPath()))))
             .requestCache(AbstractHttpConfigurer::disable).logout(AbstractHttpConfigurer::disable)
             .oauth2Login(oauth -> oauth.authorizationEndpoint(endpoint -> endpoint.authorizationRequestResolver(resolver))
                 .redirectionEndpoint(endpoint -> endpoint.baseUri("/api/auth/login/oauth2/code/*"))
@@ -50,11 +45,16 @@ public class SecurityConfiguration {
                     String name=principal.getAttribute("name") instanceof String text?text.substring(0,Math.min(text.length(),128)):"User";
                     var identity=identities.login(provider,issuer,external,name);
                     cookies.issue(response,tokens.issue(identity),refresh.create(identity.subject()));
+                    boolean polishReturn=LocalizedAuthorizationResolver.polishReturn(request);
                     var session=request.getSession(false); if(session!=null) session.invalidate();
-                    response.sendRedirect("/?login=success");
+                    if(polishReturn) response.sendRedirect("/pl/?login=success");
+                    else response.sendRedirect("/?login=success");
                 }).failureHandler((request,response,exception) -> {
+                    boolean polishReturn=LocalizedAuthorizationResolver.polishReturn(request);
                     var session=request.getSession(false); if(session!=null) session.invalidate();
-                    cookies.clear(response); response.sendRedirect("/?login=failed");
+                    cookies.clear(response);
+                    if(polishReturn) response.sendRedirect("/pl/?login=failed");
+                    else response.sendRedirect("/?login=failed");
                 }))
             .oauth2ResourceServer(resource -> resource.jwt(jwt -> jwt.decoder(tokens.decoder())).bearerTokenResolver(request -> {
                 String header=headers.resolve(request);

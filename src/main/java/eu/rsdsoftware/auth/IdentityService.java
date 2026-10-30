@@ -14,7 +14,9 @@ public final class IdentityService {
     public IdentityService(DocumentStore store) { this.store=store; }
     public Identity login(String provider,String issuer,String externalSubject,String displayName) {
         if (externalSubject == null || externalSubject.isBlank()) throw new IllegalArgumentException("Missing immutable provider subject");
-        String subject=UUID.nameUUIDFromBytes((provider+"\n"+issuer+"\n"+externalSubject).getBytes(StandardCharsets.UTF_8)).toString();
+        String subject;
+        try { subject=HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest((provider+"\n"+issuer+"\n"+externalSubject).getBytes(StandardCharsets.UTF_8))); }
+        catch(java.security.NoSuchAlgorithmException exception) { throw new IllegalStateException(exception); }
         String key="auth:v1:identity:"+subject;
         // Provider email/name/claims never create roles or link separate provider identities.
         store.insert(key,Map.of("subject",subject,"provider",provider,"name",displayName,"roles","","schema","1"));

@@ -45,12 +45,12 @@ class ProviderConfigurationTest {
         Files.writeString(privateFile,"-----BEGIN PRIVATE KEY-----\n"+Base64.getMimeEncoder().encodeToString(key.getPrivate().getEncoded())+"\n-----END PRIVATE KEY-----\n");
         var env=configured().withProperty("rsds.auth.providers.apple.private-key-file",privateFile.toString())
             .withProperty("rsds.auth.providers.apple.team-id","LOCALTEST01").withProperty("rsds.auth.providers.apple.key-id","LOCALKEY01");
-        var token=SignedJWT.parse(new AppleClientSecret(env,TestSigningMaterial.settings(false)).create());
+        var token=SignedJWT.parse(new AppleClientSecret(env).create());
         assertTrue(token.verify(new ECDSAVerifier((ECPublicKey)key.getPublic())));
         assertEquals("LOCALTEST01",token.getJWTClaimsSet().getIssuer());
         assertEquals(List.of("https://appleid.apple.com"),token.getJWTClaimsSet().getAudience());
         assertEquals(300,(token.getJWTClaimsSet().getExpirationTime().getTime()-token.getJWTClaimsSet().getIssueTime().getTime())/1000);
-        assertEquals("local-fixture-secret",new AppleClientSecret(new MockEnvironment(),TestSigningMaterial.settings(true)).create());
-        assertThrows(IllegalStateException.class,()->new AppleClientSecret(new MockEnvironment(),TestSigningMaterial.settings(false)).create());
+
+        assertThrows(IllegalStateException.class,()->new AppleClientSecret(new MockEnvironment()).create());
     }
 }

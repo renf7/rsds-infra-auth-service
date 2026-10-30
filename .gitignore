@@ -37,3 +37,4 @@ build/
 *.p8
 *.key
 .scannerwork/
+*.pem

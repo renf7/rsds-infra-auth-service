@@ -11,10 +11,8 @@ import org.springframework.stereotype.Component;
 @Component
 public final class AppleClientSecret {
     private final Environment env;
-    private final AuthSettings settings;
-    public AppleClientSecret(Environment env,AuthSettings settings) { this.env=env; this.settings=settings; }
+    public AppleClientSecret(Environment env) { this.env=env; }
     public String create() {
-        if(settings.local()) return "local-fixture-secret";
         try {
             String prefix="rsds.auth.providers.apple.";
             String pem=Files.readString(Path.of(env.getRequiredProperty(prefix+"private-key-file")));

@@ -1,0 +1,8 @@
+.git
+.github
+.local*
+target
+**/*.p12
+**/*.key
+**/*.p8
+

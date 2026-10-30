@@ -15,6 +15,13 @@ concurrency:
 jobs:
   analyze:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - language: java-kotlin
+            mode: manual
+          - language: actions
+            mode: none
     permissions:
       contents: read
       security-events: write
@@ -29,9 +36,10 @@ jobs:
           java-version: '27'
       - uses: github/codeql-action/init@9b3254085494b55a0f7c4c2b3d2d52cc712ce370
         with:
-          languages: java-kotlin,actions
-          build-mode: manual
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.mode }}
           queries: security-extended
-      - run: sh mvnw -B -DskipTests package
+      - if: matrix.language == 'java-kotlin'
+        run: sh mvnw -B -DskipTests package
       - uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370
 

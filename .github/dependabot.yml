@@ -2,18 +2,26 @@ version: 2
 updates:
   - package-ecosystem: maven
     directory: /
+    cooldown:
+      default-days: 7
     schedule:
       interval: weekly
   - package-ecosystem: github-actions
     directory: /
+    cooldown:
+      default-days: 7
     schedule:
       interval: weekly
   - package-ecosystem: docker
     directory: /
+    cooldown:
+      default-days: 7
     schedule:
       interval: weekly
   - package-ecosystem: pip
     directory: /tools/security
+    cooldown:
+      default-days: 7
     schedule:
       interval: weekly
 

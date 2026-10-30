@@ -1,9 +1,7 @@
 """Provision/verify only this public repository's public Sonar project; never log credentials."""
 import base64
-import json
 import os
-import http.client
-import urllib.parse
+import requests
 
 KEY = os.environ['SONAR_PROJECT_KEY']
 TOKEN = os.environ['SONAR_TOKEN']
@@ -13,20 +11,14 @@ HEADERS = {'Authorization': 'Basic ' + base64.b64encode((TOKEN + ':').encode()).
 
 
 def call(path, parameters, post=False):
-    data = urllib.parse.urlencode(parameters).encode()
-    connection = http.client.HTTPSConnection('sonarcloud.io', timeout=30)
-    try:
-        connection.request('POST' if post else 'GET', path + ('' if post else '?' + data.decode()),
-                           body=data if post else None,
-                           headers={**HEADERS, 'Content-Type': 'application/x-www-form-urlencoded'})
-        response = connection.getresponse()
-        if response.status == 404:
+    with requests.request('POST' if post else 'GET', 'https://sonarcloud.io' + path,
+                          params=None if post else parameters, data=parameters if post else None,
+                          headers=HEADERS, timeout=30, allow_redirects=False) as response:
+        if response.status_code == 404:
             raise LookupError('Sonar project does not exist')
-        if response.status >= 400:
-            raise SystemExit(f'Sonar project API failed with HTTP {response.status}')
-        return json.load(response) if response.getheader('Content-Type', '').startswith('application/json') else {}
-    finally:
-        connection.close()
+        if not 200 <= response.status_code < 300:
+            raise SystemExit(f'Sonar project API failed with HTTP {response.status_code}')
+        return response.json() if response.headers.get('Content-Type', '').startswith('application/json') else {}
 
 
 try:

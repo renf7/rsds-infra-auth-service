@@ -19,6 +19,9 @@ public final class SessionCookies {
     }
     public void clear(HttpServletResponse response) {
         set(response,"RSDS_ACCESS","","/",0); set(response,"RSDS_REFRESH","","/api/auth",0);
+        clearPending(response);
     }
+    public void pending(HttpServletResponse response,String flow) {set(response,"RSDS_PENDING",flow,"/api/auth",600);}
+    public void clearPending(HttpServletResponse response) {set(response,"RSDS_PENDING","","/api/auth",0);}
 }
 

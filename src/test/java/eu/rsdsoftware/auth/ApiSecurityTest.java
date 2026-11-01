@@ -18,6 +18,13 @@ class ApiSecurityTest {
     @Autowired TokenService tokens;
     @Autowired IdentityService identities;
     @Autowired RefreshService refresh;
+    @Autowired EmailVerification verification;
+    static final java.util.concurrent.atomic.AtomicReference<String> deliveredCode=new java.util.concurrent.atomic.AtomicReference<>();
+    @org.springframework.boot.test.context.TestConfiguration
+    static class MailFixture {
+        @org.springframework.context.annotation.Bean @org.springframework.context.annotation.Primary
+        VerificationMail capturedMail() {return (email,code)->deliveredCode.set(code);}
+    }
     @DynamicPropertySource static void properties(DynamicPropertyRegistry properties) {
         var settings=TestSigningMaterial.settings(true);
         properties.add("rsds.auth.local",()->"true");
@@ -42,6 +49,30 @@ class ApiSecurityTest {
         var response=get("/api/auth/csrf",null); assertEquals(200,response.statusCode());
         return new tools.jackson.databind.json.JsonMapper().readTree(response.body()).get("token").asString();
     }
+    HttpResponse<String> jsonPost(String path,String flow,String csrf,String json) throws Exception {
+        var request=HttpRequest.newBuilder(URI.create("http://localhost:"+port+path))
+            .header("Content-Type","application/json").header("Cookie","RSDS_PENDING="+flow)
+            .POST(HttpRequest.BodyPublishers.ofString(json));
+        if(csrf!=null) request.header("X-XSRF-TOKEN",csrf);
+        return client.send(request.build(),HttpResponse.BodyHandlers.ofString());
+    }
+    @Test void emailCodeMustBeDeliveredVerifiedAndConsumedBeforeJwtIssuance() throws Exception {
+        String id=UUID.randomUUID().toString(), email="verify-"+id+"@example.test";
+        String flow=verification.begin(new ProviderProfile("microsoft","issuer",id,"Alice",null,false));
+        assertEquals(200,get("/api/auth/email-verification","RSDS_PENDING="+flow).statusCode());
+        assertEquals(401,get("/api/auth/email-verification",null).statusCode());
+        String body="{\"email\":\""+email+"\"}";
+        assertEquals(403,jsonPost("/api/auth/email-code",flow,null,body).statusCode());
+        String csrf=csrf(); assertEquals(204,jsonPost("/api/auth/email-code",flow,csrf,body).statusCode());
+        assertEquals(400,jsonPost("/api/auth/email-code",flow,csrf,body).statusCode());
+        assertEquals(401,get("/api/auth/me",null).statusCode());
+        String correct=deliveredCode.get(), wrong="111111".equals(correct)?"222222":"111111";
+        assertEquals(400,jsonPost("/api/auth/verify-email",flow,csrf,"{\"code\":\""+wrong+"\"}").statusCode());
+        assertEquals(204,jsonPost("/api/auth/verify-email",flow,csrf,"{\"code\":\""+correct+"\"}").statusCode());
+        assertEquals(200,get("/api/auth/me",null).statusCode());
+        assertTrue(get("/api/auth/session",null).body().contains(email));
+        assertEquals(400,jsonPost("/api/auth/verify-email",flow,csrf,"{\"code\":\""+correct+"\"}").statusCode());
+    }
     @Test void anonymousSessionProtectedResourceAndCsrfAreEnforced() throws Exception {
         assertEquals(200,get("/api/auth/session",null).statusCode());
         assertEquals(401,get("/api/auth/me",null).statusCode());
@@ -51,7 +82,7 @@ class ApiSecurityTest {
         assertEquals(200,get("/api/auth/.well-known/jwks.json",null).statusCode());
     }
     @Test void signedTokenResolvesPersistedIdentityAndRefreshRotates() throws Exception {
-        var identity=identities.login("github","github","api-alice","Alice");
+        var identity=identities.login("github","github","api-alice","Alice","api-alice@example.test",true);
         String access=tokens.issue(identity);
         assertEquals(200,get("/api/auth/me","RSDS_ACCESS="+access).statusCode());
         assertTrue(get("/api/auth/session","RSDS_ACCESS="+access).body().contains("\"authenticated\":true"));

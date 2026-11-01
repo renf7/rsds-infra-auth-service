@@ -26,7 +26,7 @@ public final class ProviderRegistrations implements ClientRegistrationRepository
                 String base=settings.idpBase()+"/"+id;
                 builder.authorizationUri(base+"/authorize").tokenUri(base+"/token").userInfoUri(base+"/userinfo").userNameAttributeName(oidc?"sub":"id");
                 if(oidc) builder.issuerUri(base).jwkSetUri(base+"/jwks").scope("openid","profile","email");
-                else builder.scope(id.equals("github")?"read:user":"public_profile");
+                else builder.scope(id.equals("github")?new String[]{"read:user","user:email"}:new String[]{"public_profile","email"});
             } else switch(id) {
                 case "google" -> builder.issuerUri("https://accounts.google.com").authorizationUri("https://accounts.google.com/o/oauth2/v2/auth")
                     .tokenUri("https://oauth2.googleapis.com/token").jwkSetUri("https://www.googleapis.com/oauth2/v3/certs")
@@ -41,12 +41,12 @@ public final class ProviderRegistrations implements ClientRegistrationRepository
                 case "apple" -> builder.issuerUri("https://appleid.apple.com").authorizationUri("https://appleid.apple.com/auth/authorize")
                     .tokenUri("https://appleid.apple.com/auth/token").jwkSetUri("https://appleid.apple.com/auth/keys").userNameAttributeName("sub").scope("openid","name","email");
                 case "github" -> builder.authorizationUri("https://github.com/login/oauth/authorize").tokenUri("https://github.com/login/oauth/access_token")
-                    .userInfoUri("https://api.github.com/user").userNameAttributeName("id").scope("read:user");
+                    .userInfoUri("https://api.github.com/user").userNameAttributeName("id").scope("read:user","user:email");
                 case "facebook" -> {
                     String version=env.getRequiredProperty(prefix+"graph-version");
                     if(!version.matches("v[0-9]+\\.[0-9]+")) throw new IllegalArgumentException("Configure a supported Facebook Graph API version");
                     builder.authorizationUri("https://www.facebook.com/"+version+"/dialog/oauth").tokenUri("https://graph.facebook.com/"+version+"/oauth/access_token")
-                        .userInfoUri("https://graph.facebook.com/"+version+"/me?fields=id,name").userNameAttributeName("id").scope("public_profile");
+                        .userInfoUri("https://graph.facebook.com/"+version+"/me?fields=id,name,email").userNameAttributeName("id").scope("public_profile","email");
                 }
                 default -> throw new IllegalStateException("Unsupported provider");
             }

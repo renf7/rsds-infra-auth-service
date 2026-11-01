@@ -10,3 +10,5 @@ SONAR_TOKEN was supplied and a real PR analysis successfully uploaded on 30 Octo
 Native GitHub settings read back on 30 October 2026: public=true, secret_scanning=enabled, secret_scanning_push_protection=enabled, vulnerability-alerts HTTP 204 and automated-security-fixes enabled=true. No paid security tier enabled. Required branch protection is not asserted by this audit.
 
 1 November 2026: stable Spring Initializr metadata still lists Spring Boot4.1.2 as latest stable; Java27 remains the supported stable baseline. Added Spring Boot managed mail starter for real email ownership verification. No scanner checks or thresholds were relaxed. Local SMTP image is Mailpit1.33.0, separately Trivy-scanned by the runner repository; production SMTP requires authenticated TLS and secret configuration.
+
+1 November upstream release recheck: Trivy0.76.1/action0.36.0, SemgrepCE1.183.0, CodeQLAction4.39.1 (bundle tags are separate), and Sonar scan action8.4.0 remain current. Production SMTP requires STARTTLS and server-hostname certificate verification; the local profile disables STARTTLS only for isolated non-relaying SMTP capture.

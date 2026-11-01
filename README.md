@@ -24,7 +24,7 @@ Run these from the runner repository, not this service. Substitute your actual l
 
 The enabled suite contains 41 tests: original 16 marketing behaviors plus 25 auth scenarios. The fixture is only the external provider boundary: actual browser navigation, code/token/userinfo requests, OIDC signatures/nonce, PKCE where supported, Apple's form_post, Spring callbacks, first-party JWT signing/validation, cookies, database writes and refresh/logout execute normally. Invalid provider signatures, denied consent, forged state, tampered application JWT, CSRF rejection and refresh replay are checked. No application login/JWT/session response is intercepted. Country lookup alone remains mocked as before. Report mode `local-protocol-fixture` explicitly distinguishes this from live-provider verification.
 
-Provider registrations/test accounts were unavailable. Before production, independently verify all five live providers, their registered HTTPS callbacks, consent/MFA/account restrictions, Microsoft tenant policy and Apple first-login data behavior. Local passing tests do not establish those results. Production never enables the local profile or test identity provider.
+Live provider app registrations are not configured. Test user accounts alone are insufficient for live acceptance. Before production, independently verify all five live providers, their registered HTTPS callbacks, consent/MFA/account restrictions, Microsoft tenant policy and Apple first-login data behavior. Local passing tests do not establish those results. Production never enables the local profile or test identity provider.
 
 ## Browser and API contract
 

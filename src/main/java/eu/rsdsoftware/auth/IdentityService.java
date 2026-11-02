@@ -5,7 +5,10 @@ import org.springframework.stereotype.Service;
 @Service
 public final class IdentityService {
     private final DocumentStore store;
-    public record Identity(String subject,String email,String name,List<String> roles) {
+    public record Identity(String subject,String email,String name,List<String> roles,String initials,String avatarColor) {
+        public Identity(String subject,String email,String name,List<String> roles) {
+            this(subject,email,name,roles,AccountAvatar.initials(name),AccountAvatar.COLORS.getFirst());
+        }
         public Identity {roles=List.copyOf(roles);}
     }
     @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value="EI_EXPOSE_REP2",justification="Intentionally shared injected persistence port; atomic account uniqueness requires the same backing store. No reference is exposed.")
@@ -24,7 +27,7 @@ public final class IdentityService {
         if(!verified) throw new IllegalArgumentException("Email verification required");
         String normalized=EmailAddress.normalize(email), emailKey="auth:v2:email:"+EmailAddress.hash(normalized);
         store.insert(emailKey,Map.of("subject",UUID.randomUUID().toString(),"email",normalized,
-            "name",name==null?"User":name.substring(0,Math.min(name.length(),128)),"roles","","schema","2"));
+            "name",name==null?"User":name.substring(0,Math.min(name.length(),128)),"roles","","schema","2","avatarColor",AccountAvatar.randomColor()));
         var account=store.get(emailKey).orElseThrow().values();
         store.insert("auth:v2:account:"+account.get("subject"),Map.of("emailKey",emailKey));
         // Crash retries repair indices. Existing provider bindings are never reassigned.
@@ -33,10 +36,20 @@ public final class IdentityService {
     }
     public Optional<Identity> find(String subject) {
         if(subject==null) return Optional.empty();
-        return store.get("auth:v2:account:"+subject).flatMap(index->store.get(index.values().get("emailKey"))).map(row->{
-            var v=row.values();
+        return store.get("auth:v2:account:"+subject).map(index->{
+            String key=index.values().get("emailKey");
+            var v=accountWithAvatar(key);
             var roles=Arrays.stream(v.getOrDefault("roles","").split(",")).filter(Set.of("JOB_REPLY","COMPETENCE_BUILDER")::contains).toList();
-            return new Identity(v.get("subject"),v.get("email"),v.get("name"),roles);
+            return new Identity(v.get("subject"),v.get("email"),v.get("name"),roles,AccountAvatar.initials(v.get("name")),v.get("avatarColor"));
         });
+    }
+    private Map<String,String> accountWithAvatar(String key) {
+        for(int attempt=0;attempt<20;attempt++) {
+            var row=store.get(key).orElseThrow();
+            if(AccountAvatar.COLORS.contains(row.values().getOrDefault("avatarColor",""))) return row.values();
+            var updated=new HashMap<>(row.values()); updated.put("avatarColor",AccountAvatar.randomColor());
+            if(store.replace(key,row.revision(),updated)) return updated;
+        }
+        throw new IllegalStateException("Concurrent avatar update did not settle");
     }
 }

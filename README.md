@@ -53,6 +53,22 @@ New accounts have no privileged roles; only trusted stored records may grant JOB
 
 ## Production configuration and certificates
 
+### Real providers with local infrastructure
+
+Set `rsds.auth.provider-mode=live` (`RSDS_AUTH_PROVIDER_MODE=live`) independently of the `local` profile. The local profile still supplies DynamoDB Local, throwaway signing material and local cookie settings; it no longer forces provider fixtures when explicitly set to live. Omitted providers remain disabled, with no automatic fixture fallback. `fixture` is rejected outside local infrastructure. Use the runner's `--provider-config` option described in its README; automated `--e2e` is forbidden in live mode.
+
+Real providers require application-owner OAuth app registrations, approved exact callbacks and protected client credentials even when test user accounts already exist. Never supply provider account passwords to this service. Google/GitHub/Microsoft GET callbacks can use provider-approved loopback development URLs; Facebook development settings may require HTTPS/domain setup. Register the exact origin/path accepted by that provider. Apple form POST requires the production HTTPS/Secure-cookie profile and registered domain; local HTTP live Apple fails explicitly rather than claiming working support.
+
+For personal Outlook accounts, configure an app allowing personal Microsoft accounts and the explicit consumer tenant UUID `9188040d-6c67-4c5b-b112-36a304b66dad`; unrestricted `common` is still rejected. Reference: https://learn.microsoft.com/en-us/entra/identity-platform/access-tokens . A tenant UUID alone does not register an application.
+
+### Stable account avatar
+
+The account stores one randomly selected dark background from a fixed white-text palette. It is shared across verified-email-linked providers and retained on repeat login/restart. Legacy records receive a colour once through atomic CAS. Session/profile responses include `initials` and `avatarColor`; no JWT secrets are exposed. Initials use the first and last name's first letters, or the first two letters of a single-word name; a missing second letter uses U, and no usable name uses UU. Uppercase Unicode letters are supported. Local in-memory DynamoDB data is intentionally lost on teardown; production persistence retains the colour.
+
+### Database connection portability
+
+Connection properties are external: `rsds.auth.region`, `table`, and (local adapter) `dynamo-endpoint` (host/port URL). Production DynamoDB uses the AWS SDK credential chain/workload identity, not a database username/password. Domain code depends only on `DocumentStore` strong-read/conditional-insert/CAS operations. Other NoSQL protocols need an adapter implementing those contracts and a data/index migration; changing host/port/user/password alone cannot convert DynamoDB requests into MongoDB/Cassandra/etc. Do not put database or OAuth credentials in application properties committed to Git.
+
 Provide an existing shared DynamoDB table, scoped AWS workload identity (SDK default credential chain, STS included), signing/trust mounts, provider app registrations and canonical public base URL. No production credentials are hardcoded. Helm auth defaults disabled; it requires signing/trust secret names before enabling.
 
 | Configuration | Required value |

@@ -45,7 +45,7 @@ public class ProviderProfiles {
         return request->{
             var user=standard.loadUser(request);
             if(!"github".equals(request.getClientRegistration().getRegistrationId())) return user;
-            String endpoint=settings.local()?settings.idpBase()+"/github/emails":"https://api.github.com/user/emails";
+            String endpoint=settings.fixtureProviders()?settings.idpBase()+"/github/emails":"https://api.github.com/user/emails";
             var emails=client.get().uri(endpoint).headers(h->h.setBearerAuth(request.getAccessToken().getTokenValue()))
                 .retrieve().body(new ParameterizedTypeReference<List<Map<String,Object>>>() {});
             var attributes=new HashMap<>(user.getAttributes()); attributes.put("app_verified_email",false);

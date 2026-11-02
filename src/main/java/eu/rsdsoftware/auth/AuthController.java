@@ -25,7 +25,7 @@ public final class AuthController {
     @GetMapping("/session") public Object session(@AuthenticationPrincipal Jwt jwt) {
         if(jwt==null) return Map.of("authenticated",false);
         var identity=identities.find(jwt.getSubject()).orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
-        return Map.of("authenticated",true,"subject",identity.subject(),"name",identity.name(),"roles",identity.roles(),"email",identity.email());
+        return Map.of("authenticated",true,"subject",identity.subject(),"name",identity.name(),"roles",identity.roles(),"email",identity.email(),"initials",identity.initials(),"avatarColor",identity.avatarColor());
     }
     @GetMapping("/me") public IdentityService.Identity me(@AuthenticationPrincipal Jwt jwt) {
         return identities.find(jwt.getSubject()).orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));

@@ -13,16 +13,18 @@ public final class ProviderRegistrations implements ClientRegistrationRepository
         var result=new LinkedHashMap<String,ClientRegistration>();
         for(String id:PROVIDERS) {
             String prefix="rsds.auth.providers."+id+".";
-            String clientId=settings.local()?"local-"+id:env.getProperty(prefix+"client-id");
+            String clientId=settings.fixtureProviders()?"local-"+id:env.getProperty(prefix+"client-id");
+            if(!settings.fixtureProviders() && "local-apple".equals(clientId)) continue;
             if(clientId==null || clientId.isBlank()) continue;
-            String secret=settings.local()?"local-fixture-secret":id.equals("apple")?"generated-at-token-exchange":env.getRequiredProperty(prefix+"client-secret");
+            if(settings.local() && !settings.fixtureProviders() && id.equals("apple")) throw new IllegalArgumentException("Live Apple requires the production HTTPS/Secure-cookie profile; not local HTTP mode");
+            String secret=settings.fixtureProviders()?"local-fixture-secret":id.equals("apple")?"generated-at-token-exchange":env.getRequiredProperty(prefix+"client-secret");
             var builder=ClientRegistration.withRegistrationId(id).clientId(clientId).clientSecret(secret)
                 .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_POST)
                 .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
-                .redirectUri(settings.local()?"{baseUrl}/api/auth/login/oauth2/code/{registrationId}":env.getRequiredProperty("rsds.auth.public-base-url")+"/api/auth/login/oauth2/code/"+id)
+                .redirectUri(settings.fixtureProviders()?"{baseUrl}/api/auth/login/oauth2/code/{registrationId}":env.getRequiredProperty("rsds.auth.public-base-url")+"/api/auth/login/oauth2/code/"+id)
                 .clientName(id);
             boolean oidc=Set.of("google","microsoft","apple").contains(id);
-            if(settings.local()) {
+            if(settings.fixtureProviders()) {
                 String base=settings.idpBase()+"/"+id;
                 builder.authorizationUri(base+"/authorize").tokenUri(base+"/token").userInfoUri(base+"/userinfo").userNameAttributeName(oidc?"sub":"id");
                 if(oidc) builder.issuerUri(base).jwkSetUri(base+"/jwks").scope("openid","profile","email");

@@ -13,7 +13,7 @@ public final class LocalizedAuthorizationResolver implements OAuth2Authorization
             String id=(String)attributes.get(OAuth2ParameterNames.REGISTRATION_ID);
             if(Set.of("google","microsoft","github").contains(id)) OAuth2AuthorizationRequestCustomizers.withPkce().accept(builder);
             if("apple".equals(id)) builder.additionalParameters(parameters -> parameters.put("response_mode","form_post"));
-            if(settings.local()) builder.authorizationUri("/__test/idp/"+id+"/authorize");
+            if(settings.fixtureProviders()) builder.authorizationUri("/__test/idp/"+id+"/authorize");
         }));
     }
     private OAuth2AuthorizationRequest remember(HttpServletRequest request,OAuth2AuthorizationRequest authorization) {

@@ -20,7 +20,8 @@ public class ProviderProfiles {
         String issuer=provider, external=user.getName(); Map<String,Object> claims=user.getAttributes();
         if(user instanceof OidcUser oidc) {issuer=Objects.requireNonNull(oidc.getIssuer()).toString(); external=oidc.getSubject(); claims=Objects.requireNonNull(oidc.getIdToken()).getClaims();}
         String email=text(claims.get("email")), name=text(user.getAttribute("name"));
-        if(name==null) name="User";
+        if((name==null || name.isBlank()) && "github".equals(provider)) name=text(user.getAttribute("login"));
+        if(name==null || name.isBlank()) name="User";
         boolean verified=false;
         if(email!=null) {
             try {email=EmailAddress.normalize(email);} catch(IllegalArgumentException invalid) {email=null;}

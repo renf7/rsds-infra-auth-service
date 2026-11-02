@@ -36,4 +36,10 @@ class ProviderProfilesTest {
         var user=new DefaultOAuth2User(authorities,Map.of("id","123","email","alice@example.test","app_verified_email",true),"id");
         assertTrue(ProviderProfiles.read(new OAuth2AuthenticationToken(user,authorities,"github")).verified());
     }
+    @Test void githubUsernameSuppliesTheAccountNameWhenDisplayNameIsMissing() {
+        var user=new DefaultOAuth2User(authorities,Map.of("id","123","login","rsdstest4"),"id");
+        var profile=ProviderProfiles.read(new OAuth2AuthenticationToken(user,authorities,"github"));
+        assertEquals("rsdstest4",profile.name());
+        assertEquals("RS",AccountAvatar.initials(profile.name()));
+    }
 }

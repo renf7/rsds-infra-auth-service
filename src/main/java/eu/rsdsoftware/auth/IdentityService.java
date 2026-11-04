@@ -24,6 +24,15 @@ public final class IdentityService {
     public Identity login(String provider,String issuer,String externalSubject,String name,String email,boolean verified) {
         String binding=bindingKey(provider,issuer,externalSubject);
         var existing=linked(provider,issuer,externalSubject); if(existing.isPresent()) return existing.get();
+        if(!verified && (email==null || email.isBlank())) {
+            String key="auth:v2:provider-account:"+EmailAddress.hash(binding);
+            store.insert(key,Map.of("subject",UUID.randomUUID().toString(),"email","",
+                "name",name==null?"User":name.substring(0,Math.min(name.length(),128)),"roles","","schema","2","avatarColor",AccountAvatar.randomColor()));
+            var account=store.get(key).orElseThrow().values();
+            store.insert("auth:v2:account:"+account.get("subject"),Map.of("emailKey",key));
+            store.insert(binding,Map.of("subject",account.get("subject")));
+            return linked(provider,issuer,externalSubject).orElseThrow();
+        }
         if(!verified) throw new IllegalArgumentException("Email verification required");
         String normalized=EmailAddress.normalize(email), emailKey="auth:v2:email:"+EmailAddress.hash(normalized);
         store.insert(emailKey,Map.of("subject",UUID.randomUUID().toString(),"email",normalized,
@@ -42,6 +51,25 @@ public final class IdentityService {
             var roles=Arrays.stream(v.getOrDefault("roles","").split(",")).filter(Set.of("JOB_REPLY","COMPETENCE_BUILDER")::contains).toList();
             return new Identity(v.get("subject"),v.get("email"),v.get("name"),roles,AccountAvatar.initials(v.get("name")),v.get("avatarColor"));
         });
+    }
+    public record Settings(String email,boolean emailVerified) {}
+    public Settings settings(String subject) {
+        var index=store.get("auth:v2:account:"+subject).orElseThrow(()->new IllegalArgumentException("Unknown account"));
+        var row=store.get(index.values().get("emailKey")).orElseThrow().values();
+        String verified=row.getOrDefault("email","");
+        String contact=row.getOrDefault("contactEmail",verified);
+        return new Settings(contact,!verified.isEmpty() && verified.equals(contact));
+    }
+    public void saveContactEmail(String subject,String email) {
+        String normalized=email==null || email.isBlank()?"":EmailAddress.normalize(email);
+        String key=store.get("auth:v2:account:"+subject).orElseThrow(()->new IllegalArgumentException("Unknown account")).values().get("emailKey");
+        for(int attempt=0;attempt<20;attempt++) {
+            var row=store.get(key).orElseThrow();
+            var updated=new HashMap<>(row.values()); updated.put("contactEmail",normalized);
+            // Contact data is never an identity index or proof of email ownership.
+            if(store.replace(key,row.revision(),updated)) return;
+        }
+        throw new IllegalStateException("Concurrent settings update did not settle");
     }
     private Map<String,String> accountWithAvatar(String key) {
         for(int attempt=0;attempt<20;attempt++) {

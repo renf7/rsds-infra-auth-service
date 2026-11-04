@@ -92,6 +92,25 @@ class ApiSecurityTest {
         assertFalse(hinted.body().contains("invalid-hint-only"));
         assertEquals(401,post("/api/auth/refresh","RSDS_REFRESH=invalid-hint-only",csrf()).statusCode());
     }
+    @Test void settingsRequireJwtAndCsrfAndSaveOnlyContactData() throws Exception {
+        var account=identities.login("facebook","issuer",UUID.randomUUID().toString(),"No email",null,false);
+        String access=tokens.issue(account);
+        assertEquals(401,get("/api/auth/settings",null).statusCode());
+        assertEquals(200,get("/api/auth/settings","RSDS_ACCESS="+access).statusCode());
+        String csrf=csrf();
+        var uri=URI.create("http://localhost:"+port+"/api/auth/settings");
+        var withoutCsrf=HttpRequest.newBuilder(uri).header("Cookie","RSDS_ACCESS="+access)
+            .header("Content-Type","application/json").PUT(HttpRequest.BodyPublishers.ofString("{\"email\":\"contact@example.test\"}")).build();
+        assertEquals(403,client.send(withoutCsrf,HttpResponse.BodyHandlers.discarding()).statusCode());
+        var save=HttpRequest.newBuilder(uri).header("Cookie","RSDS_ACCESS="+access).header("X-XSRF-TOKEN",csrf)
+            .header("Content-Type","application/json").PUT(HttpRequest.BodyPublishers.ofString("{\"email\":\"contact@example.test\"}")).build();
+        assertEquals(204,client.send(save,HttpResponse.BodyHandlers.discarding()).statusCode());
+        assertTrue(get("/api/auth/settings","RSDS_ACCESS="+access).body().contains("contact@example.test"));
+        assertEquals("",identities.find(account.subject()).orElseThrow().email());
+        var invalid=HttpRequest.newBuilder(uri).header("Cookie","RSDS_ACCESS="+access).header("X-XSRF-TOKEN",csrf)
+            .header("Content-Type","application/json").PUT(HttpRequest.BodyPublishers.ofString("{\"email\":\"invalid\"}")).build();
+        assertEquals(400,client.send(invalid,HttpResponse.BodyHandlers.discarding()).statusCode());
+    }
     @Test void signedTokenResolvesPersistedIdentityAndRefreshRotates() throws Exception {
         var identity=identities.login("github","github","api-alice","Alice","api-alice@example.test",true);
         String access=tokens.issue(identity);

@@ -32,6 +32,14 @@ public final class AuthController {
         return identities.find(jwt.getSubject()).orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
     }
     @GetMapping("/csrf") public Object csrf(CsrfToken token) { return Map.of("token",token.getToken()); }
+    @GetMapping("/settings") public IdentityService.Settings settings(@AuthenticationPrincipal Jwt jwt) {
+        return identities.settings(jwt.getSubject());
+    }
+    public record ContactEmailRequest(@jakarta.validation.constraints.Size(max=254) String email) {}
+    @PutMapping("/settings") public ResponseEntity<Void> settings(@AuthenticationPrincipal Jwt jwt,@jakarta.validation.Valid @RequestBody ContactEmailRequest body) {
+        try {identities.saveContactEmail(jwt.getSubject(),body.email()); return ResponseEntity.noContent().build();}
+        catch(IllegalArgumentException invalid) {throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Enter a valid email or leave it empty");}
+    }
     @GetMapping("/email-verification") public Object verification(HttpServletRequest request) {
         try {return verification.status(SessionCookies.read(request,"RSDS_PENDING"));}
         catch(IllegalArgumentException invalid) {throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"Sign in again");}

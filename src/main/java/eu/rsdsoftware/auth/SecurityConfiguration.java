@@ -27,7 +27,7 @@ public class SecurityConfiguration {
         var headers=new DefaultBearerTokenResolver();
         var csrfCookies=new CookieCsrfTokenRepository();
         csrfCookies.setCookieCustomizer(cookie -> cookie.secure(!settings.local()).sameSite("Lax"));
-        return http.authorizeHttpRequests(auth -> auth.requestMatchers("/api/auth/me").authenticated().anyRequest().permitAll())
+        return http.authorizeHttpRequests(auth -> auth.requestMatchers("/api/auth/me","/api/auth/settings").authenticated().anyRequest().permitAll())
             .csrf(csrf -> configureAppleCallbackCsrf(csrf,csrfCookies))
             .requestCache(AbstractHttpConfigurer::disable).logout(AbstractHttpConfigurer::disable)
             .oauth2Login(oauth -> oauth.authorizationEndpoint(endpoint -> endpoint.authorizationRequestResolver(resolver))
@@ -40,7 +40,8 @@ public class SecurityConfiguration {
                     var profile=ProviderProfiles.read(login);
                     var session=request.getSession(false); if(session!=null) session.invalidate();
                     try {
-                        if(!profile.verified() && identities.linked(profile.provider(),profile.issuer(),profile.externalSubject()).isEmpty()) {
+                        if(!profile.verified() && profile.email()!=null && !profile.email().isBlank()
+                                && identities.linked(profile.provider(),profile.issuer(),profile.externalSubject()).isEmpty()) {
                             cookies.clear(response); cookies.pending(response,verification.begin(profile));
                             if(polishReturn) response.sendRedirect("/pl/?login=verify"); else response.sendRedirect("/?login=verify");
                         } else {
@@ -62,7 +63,7 @@ public class SecurityConfiguration {
             .oauth2ResourceServer(resource -> resource.jwt(jwt -> jwt.decoder(tokens.decoder())).bearerTokenResolver(request -> {
                 String header=headers.resolve(request);
                 if(header!=null) return header;
-                return Set.of("/api/auth/me","/api/auth/session").contains(request.getRequestURI())?SessionCookies.read(request,"RSDS_ACCESS"):null;
+                return Set.of("/api/auth/me","/api/auth/session","/api/auth/settings").contains(request.getRequestURI())?SessionCookies.read(request,"RSDS_ACCESS"):null;
             })).build();
     }
     /**
@@ -76,10 +77,18 @@ public class SecurityConfiguration {
     private static void configureAppleCallbackCsrf(
             org.springframework.security.config.annotation.web.configurers.CsrfConfigurer<HttpSecurity> csrf,
             CookieCsrfTokenRepository cookies) {
-        csrf.csrfTokenRepository(cookies).requireCsrfProtectionMatcher(request ->
-            org.springframework.security.web.csrf.CsrfFilter.DEFAULT_CSRF_MATCHER.matches(request)
-                && !("POST".equals(request.getMethod())
-                    && "/api/auth/login/oauth2/code/apple".equals(request.getServletPath())));
+        csrf.csrfTokenRepository(cookies).withObjectPostProcessor(
+            new org.springframework.security.config.ObjectPostProcessor<org.springframework.security.web.csrf.CsrfFilter>() {
+                @Override public <O extends org.springframework.security.web.csrf.CsrfFilter> O postProcess(O filter) {
+                    // Resource-server defaults skip CSRF for bearer requests. Our bearer
+                    // resolver also reads cookies, so enforce this final matcher instead.
+                    filter.setRequireCsrfProtectionMatcher(request ->
+                        org.springframework.security.web.csrf.CsrfFilter.DEFAULT_CSRF_MATCHER.matches(request)
+                            && !("POST".equals(request.getMethod())
+                                && "/api/auth/login/oauth2/code/apple".equals(request.getServletPath())));
+                    return filter;
+                }
+            });
     }
 }
 

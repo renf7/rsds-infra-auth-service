@@ -81,6 +81,17 @@ class ApiSecurityTest {
         assertEquals(200,get("/api/auth/providers",null).statusCode());
         assertEquals(200,get("/api/auth/.well-known/jwks.json",null).statusCode());
     }
+    @Test void refreshCookiePresenceIsOnlyARecoveryHintAndNeverAuthenticates() throws Exception {
+        var anonymous=get("/api/auth/session",null);
+        assertEquals(200,anonymous.statusCode());
+        assertTrue(anonymous.body().contains("\"refreshAvailable\":false"));
+        var hinted=get("/api/auth/session","RSDS_REFRESH=invalid-hint-only");
+        assertEquals(200,hinted.statusCode());
+        assertTrue(hinted.body().contains("\"authenticated\":false"));
+        assertTrue(hinted.body().contains("\"refreshAvailable\":true"));
+        assertFalse(hinted.body().contains("invalid-hint-only"));
+        assertEquals(401,post("/api/auth/refresh","RSDS_REFRESH=invalid-hint-only",csrf()).statusCode());
+    }
     @Test void signedTokenResolvesPersistedIdentityAndRefreshRotates() throws Exception {
         var identity=identities.login("github","github","api-alice","Alice","api-alice@example.test",true);
         String access=tokens.issue(identity);

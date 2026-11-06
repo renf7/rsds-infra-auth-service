@@ -1,32 +1,29 @@
 """Provision/verify only this public repository's public Sonar project; never log credentials."""
 import base64
-import json
 import os
-import urllib.error
-import urllib.parse
-import urllib.request
+import requests
 
 KEY = os.environ['SONAR_PROJECT_KEY']
 TOKEN = os.environ['SONAR_TOKEN']
-BASE = 'https://sonarcloud.io'
 if not TOKEN:
     raise SystemExit('SONAR_TOKEN is required')
 HEADERS = {'Authorization': 'Basic ' + base64.b64encode((TOKEN + ':').encode()).decode()}
 
 
 def call(path, parameters, post=False):
-    data = urllib.parse.urlencode(parameters).encode()
-    request = urllib.request.Request(BASE + path + ('' if post else '?' + data.decode()),
-                                     data=data if post else None, headers=HEADERS)
-    with urllib.request.urlopen(request, timeout=30) as response:
-        return json.load(response) if response.headers.get('Content-Type', '').startswith('application/json') else {}
+    with requests.request('POST' if post else 'GET', 'https://sonarcloud.io' + path,
+                          params=None if post else parameters, data=parameters if post else None,
+                          headers=HEADERS, timeout=30, allow_redirects=False) as response:
+        if response.status_code == 404:
+            raise LookupError('Sonar project does not exist')
+        if not 200 <= response.status_code < 300:
+            raise SystemExit(f'Sonar project API failed with HTTP {response.status_code}')
+        return response.json() if response.headers.get('Content-Type', '').startswith('application/json') else {}
 
 
 try:
     component = call('/api/components/show', {'component': KEY})['component']
-except urllib.error.HTTPError as error:
-    if error.code != 404:
-        raise SystemExit(f'Sonar project lookup failed with HTTP {error.code}') from error
+except LookupError:
     call('/api/projects/create', {'organization': 'renf7', 'project': KEY, 'name': KEY, 'visibility': 'public'}, True)
     component = call('/api/components/show', {'component': KEY})['component']
 if component.get('visibility') != 'public':

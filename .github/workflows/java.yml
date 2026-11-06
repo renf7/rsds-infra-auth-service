@@ -24,7 +24,11 @@ jobs:
         with:
           distribution: temurin
           java-version: '27'
+      - name: Start real DynamoDB Local for adapter and HTTP security contracts
+        run: docker run -d --name auth-contract-dynamodb -p 127.0.0.1:8000:8000 amazon/dynamodb-local:3.2.0 -jar DynamoDBLocal.jar -inMemory -sharedDb
       - name: Verify compiled code with SpotBugs and Find Security Bugs
+        env:
+          TEST_DYNAMO_ENDPOINT: http://127.0.0.1:8000
         run: sh mvnw -B verify
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()

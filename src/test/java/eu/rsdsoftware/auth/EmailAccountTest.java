@@ -16,11 +16,16 @@ class EmailAccountTest {
     }
     @Test void unverifiedMissingAndMalformedEmailsCannotReserveOrLinkAccounts() {
         var service=new IdentityService(new InMemoryDocumentStore());
-        assertThrows(IllegalArgumentException.class,()->service.login("microsoft","issuer","attacker","Alice","alice@example.test",false));
+        var external=service.login("microsoft","issuer","attacker","Alice","alice@example.test",false);
+        assertEquals("",external.email());
+        assertEquals("alice@example.test",service.settings(external.subject()).email());
+        assertFalse(service.settings(external.subject()).emailVerified());
+        assertEquals(external.subject(),service.login("microsoft","issuer","attacker","Alice","changed@example.test",false).subject());
         for(String email:List.of("","invalid","a@b\nBcc: victim@example.test"))
             assertThrows(IllegalArgumentException.class,()->service.login("github","issuer","sub","Alice",email,true));
         var owner=service.login("google","issuer","owner","Alice","alice@example.test",true);
         assertNotNull(owner.subject());
+        assertNotEquals(external.subject(),owner.subject());
     }
     @Test void establishedProviderBindingCannotMoveToAnotherAccountWhenEmailChanges() {
         var service=new IdentityService(new InMemoryDocumentStore());

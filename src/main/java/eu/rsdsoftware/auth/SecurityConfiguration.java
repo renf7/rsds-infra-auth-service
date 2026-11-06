@@ -16,7 +16,7 @@ import org.springframework.security.oauth2.server.resource.web.DefaultBearerToke
 public class SecurityConfiguration {
     @Bean SecurityFilterChain security(HttpSecurity http,ProviderRegistrations providers,AuthSettings settings,
             AppleClientSecret apple,IdentityService identities,TokenService tokens,RefreshService refresh,SessionCookies cookies,
-            EmailVerification verification,org.springframework.security.oauth2.client.userinfo.OAuth2UserService<org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest,org.springframework.security.oauth2.core.user.OAuth2User> providerUsers) throws Exception {
+            org.springframework.security.oauth2.client.userinfo.OAuth2UserService<org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest,org.springframework.security.oauth2.core.user.OAuth2User> providerUsers) throws Exception {
         var resolver=new LocalizedAuthorizationResolver(providers,settings);
         var tokenClient=new RestClientAuthorizationCodeTokenResponseClient();
         tokenClient.setParametersCustomizer(parameters -> {
@@ -40,15 +40,9 @@ public class SecurityConfiguration {
                     var profile=ProviderProfiles.read(login);
                     var session=request.getSession(false); if(session!=null) session.invalidate();
                     try {
-                        if(!profile.verified() && profile.email()!=null && !profile.email().isBlank()
-                                && identities.linked(profile.provider(),profile.issuer(),profile.externalSubject()).isEmpty()) {
-                            cookies.clear(response); cookies.pending(response,verification.begin(profile));
-                            if(polishReturn) response.sendRedirect("/pl/?login=verify"); else response.sendRedirect("/?login=verify");
-                        } else {
                             var identity=identities.login(profile.provider(),profile.issuer(),profile.externalSubject(),profile.name(),profile.email(),profile.verified());
                             cookies.clearPending(response); cookies.issue(response,tokens.issue(identity),refresh.create(identity.subject()));
                             if(polishReturn) response.sendRedirect("/pl/?login=success"); else response.sendRedirect("/?login=success");
-                        }
                     } catch(IllegalArgumentException | org.springframework.mail.MailException failure) {
                         cookies.clear(response);
                         if(polishReturn) response.sendRedirect("/pl/?login=failed"); else response.sendRedirect("/?login=failed");

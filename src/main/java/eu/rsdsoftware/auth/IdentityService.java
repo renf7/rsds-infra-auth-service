@@ -24,16 +24,18 @@ public final class IdentityService {
     public Identity login(String provider,String issuer,String externalSubject,String name,String email,boolean verified) {
         String binding=bindingKey(provider,issuer,externalSubject);
         var existing=linked(provider,issuer,externalSubject); if(existing.isPresent()) return existing.get();
-        if(!verified && (email==null || email.isBlank())) {
+        if(!verified) {
             String key="auth:v2:provider-account:"+EmailAddress.hash(binding);
-            store.insert(key,Map.of("subject",UUID.randomUUID().toString(),"email","",
+            var values=new HashMap<>(Map.of("subject",UUID.randomUUID().toString(),"email","",
                 "name",name==null?"User":name.substring(0,Math.min(name.length(),128)),"roles","","schema","2","avatarColor",AccountAvatar.randomColor()));
+            // Provider authentication proves identity, not ownership of an unverified email.
+            if(email!=null && !email.isBlank()) values.put("contactEmail",EmailAddress.normalize(email));
+            store.insert(key,values);
             var account=store.get(key).orElseThrow().values();
             store.insert("auth:v2:account:"+account.get("subject"),Map.of("emailKey",key));
             store.insert(binding,Map.of("subject",account.get("subject")));
             return linked(provider,issuer,externalSubject).orElseThrow();
         }
-        if(!verified) throw new IllegalArgumentException("Email verification required");
         String normalized=EmailAddress.normalize(email), emailKey="auth:v2:email:"+EmailAddress.hash(normalized);
         store.insert(emailKey,Map.of("subject",UUID.randomUUID().toString(),"email",normalized,
             "name",name==null?"User":name.substring(0,Math.min(name.length(),128)),"roles","","schema","2","avatarColor",AccountAvatar.randomColor()));

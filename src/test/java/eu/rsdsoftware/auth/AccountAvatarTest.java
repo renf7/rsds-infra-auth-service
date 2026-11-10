@@ -9,10 +9,10 @@ class AccountAvatarTest {
         assertEquals("AU", AccountAvatar.initials("A"));
         assertEquals("UU", AccountAvatar.initials(null));
     }
-    @Test void colourPersistsAcrossRestartAndLinkedProviderLogin() {
+    @Test void colourPersistsAcrossRestartAndRepeatedProviderLogin() {
         var store = new InMemoryDocumentStore();
         var first = new IdentityService(store).login("google", "issuer", "one", "Alice Lee", "alice@example.test", true);
-        var next = new IdentityService(store).login("github", "github", "two", "Different Name", "alice@example.test", true);
+        var next = new IdentityService(store).login("google", "issuer", "one", "Different Name", null, false);
         assertEquals("AL", first.initials());
         assertEquals(first.avatarColor(), next.avatarColor());
         assertEquals(first.initials(), next.initials());

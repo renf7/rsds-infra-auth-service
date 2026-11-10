@@ -29,6 +29,10 @@ class ProviderConfigurationTest {
             assertEquals("https://www.rsdsoftware.eu/api/auth/login/oauth2/code/"+id,client.getRedirectUri());
             assertTrue(client.getProviderDetails().getAuthorizationUri().startsWith("https://"));
             assertTrue(client.getProviderDetails().getTokenUri().startsWith("https://"));
+            assertFalse(client.getScopes().contains("email"));
+            assertFalse(client.getScopes().contains("user:email"));
+            assertFalse(client.getProviderDetails().getUserInfoEndpoint().getUri()!=null
+                && client.getProviderDetails().getUserInfoEndpoint().getUri().contains("fields=id,name,email"));
         }
         assertEquals(5,registrations.availability().size()); assertTrue(registrations.iterator().hasNext());
     }

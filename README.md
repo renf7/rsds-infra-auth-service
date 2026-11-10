@@ -128,3 +128,13 @@ SSO update (6 November 2026): successful provider authentication immediately sig
 
 ## Runtime provider visibility
 Set RSDS_AUTH_PROVIDER_VISIBILITY_FILE to a read-only projected ConfigMap file containing a comma-separated allowlist (facebook,microsoft,google,github). The file is reread per discovery request; no restart needed. Empty, invalid or missing configured files hide all buttons. Without a configured file, supported registered providers are visible. Apple stays deferred. The API adds visible alongside enabled and returns Cache-Control: no-store. Visibility is presentation only: direct OAuth URLs, in-flight callbacks and existing JWT sessions are unaffected. See the Helm docs/provider-visibility.md runbook.
+
+## Session-cookie Secure policy (RSDSINFRA-36)
+
+Production explicitly sets `server.servlet.session.cookie.secure=true`. The local
+profile clears this Boolean override so the servlet container uses request-aware
+behavior: HTTP fixtures can retain their handshake session and HTTPS session cookies
+are Secure. HttpOnly stays enabled. The local profile must never be used for EKS.
+The public legacy Sonar project `renf7_rsds-infra-auth-service` is separate from the
+canonical CI project `rsds-infra-auth-service`; its failing S2092 report exposed the
+previous unconditional local `secure=false` setting. No rule/gate is suppressed.

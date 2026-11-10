@@ -125,3 +125,6 @@ Missing-email sign-in and Settings (4 November 2026): absent provider email sign
 
 
 SSO update (6 November 2026): successful provider authentication immediately signs in or creates an internal account, with no application email-code popup for any provider. Existing immutable provider bindings are reused. Ownership-verified emails may share an account; unverified or absent emails use a separate stable provider/issuer/subject identity and never silently link another account. Optional email remains available on the full Settings page. Provider consent/MFA is unchanged. Automated provider coverage uses only local protocol fixtures; live acceptance is manual. This supersedes older email-code onboarding instructions above.
+
+## Runtime provider visibility
+Set RSDS_AUTH_PROVIDER_VISIBILITY_FILE to a read-only projected ConfigMap file containing a comma-separated allowlist (facebook,microsoft,google,github). The file is reread per discovery request; no restart needed. Empty, invalid or missing configured files hide all buttons. Without a configured file, supported registered providers are visible. Apple stays deferred. The API adds visible alongside enabled and returns Cache-Control: no-store. Visibility is presentation only: direct OAuth URLs, in-flight callbacks and existing JWT sessions are unaffected. See the Helm docs/provider-visibility.md runbook.

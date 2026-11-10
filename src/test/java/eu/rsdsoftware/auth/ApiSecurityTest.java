@@ -28,6 +28,7 @@ class ApiSecurityTest {
     @DynamicPropertySource static void properties(DynamicPropertyRegistry properties) {
         var settings=TestSigningMaterial.settings(true);
         properties.add("rsds.auth.local",()->"true");
+        properties.add("rsds.auth.providers.apple.enabled",()->"true"); // Isolated retained protocol tests only.
         properties.add("rsds.auth.private-key",settings::privateKey);
         properties.add("rsds.auth.public-certificates",settings::publicCertificates);
         properties.add("rsds.auth.dynamo-endpoint",()->System.getenv("TEST_DYNAMO_ENDPOINT"));

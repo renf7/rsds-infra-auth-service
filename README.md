@@ -1,5 +1,14 @@
 # rsds-infra-auth-service
 
+Apple sign-in is disabled by default in both production and local fixtures
+([RSDSINFRA-32](https://rsdsoftware.atlassian.net/browse/RSDSINFRA-32)): the owner
+defers its annual Apple Developer membership cost until website profitability.
+Stale Apple credentials do not enable it. Provider discovery reports Apple disabled,
+and no Apple OAuth client is registered. The frontend also omits its button.
+Retained isolated protocol tests explicitly set `RSDS_AUTH_PROVIDERS_APPLE_ENABLED=true`;
+ordinary environments must leave it unset/false. Re-enablement requires an explicit
+owner decision, paid membership, configuration and live-provider acceptance.
+
 For personal and organizational Microsoft accounts without guest invitations, see
 [public Microsoft sign-in configuration and validation](docs/microsoft-production.md).
 

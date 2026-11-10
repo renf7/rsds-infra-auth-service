@@ -18,7 +18,7 @@ class ProviderVisibilityTest {
         Path file=directory.resolve("visible-providers");
         var policy=new ProviderVisibility(new MockEnvironment().withProperty("rsds.auth.provider-visibility-file",file.toString()));
         assertTrue(policy.visible().isEmpty());
-        Files.writeString(file,"github, google\n");
+        Files.writeString(file,"GitHub, GOOGLE\n");
         assertEquals(Set.of("github","google"),policy.visible());
         Path replacement=directory.resolve("replacement");
         Files.writeString(replacement,"microsoft");

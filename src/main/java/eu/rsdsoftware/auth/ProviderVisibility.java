@@ -6,6 +6,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Set;
+import java.util.Locale;
 import java.util.stream.Collectors;
 import org.springframework.core.env.Environment;
 
@@ -27,7 +28,7 @@ final class ProviderVisibility {
             if(bytes.length>1024) return Set.of();
             String value=new String(bytes,StandardCharsets.UTF_8).strip();
             if(value.isEmpty()) return Set.of();
-            Set<String> selected=Arrays.stream(value.split(",",-1)).map(String::strip).collect(Collectors.toUnmodifiableSet());
+            Set<String> selected=Arrays.stream(value.split(",",-1)).map(entry -> entry.strip().toLowerCase(Locale.ROOT)).collect(Collectors.toUnmodifiableSet());
             return SUPPORTED.containsAll(selected)?selected:Set.of();
         } catch(IOException exception) {
             return Set.of();

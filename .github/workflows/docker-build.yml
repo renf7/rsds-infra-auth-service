@@ -14,24 +14,24 @@ jobs:
     runs-on: ubuntu-latest
     env:
       IMAGE: renf7/rsds-infra-auth-service
-      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      - name: Require registry publishing configuration
-        run: test -n "$DOCKERHUB_USERNAME" && test -n "$DOCKERHUB_TOKEN"
-      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069
-      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6
+      - name: Enable attestation-preserving containerd image store
+        uses: docker/setup-docker-action@3f1ab1ab0e29231562e4db4ca600c1a49653bac6
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          daemon-config: |
+            {"features":{"containerd-snapshotter":true}}
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069
+
       - name: Build main without publishing
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc
         with:
           context: .
           load: true
+          provenance: mode=min
+          sbom: true
           push: false
           tags: |
             ${{ env.IMAGE }}:git-${{ github.sha }}
@@ -46,7 +46,25 @@ jobs:
           severity: HIGH,CRITICAL
           exit-code: '1'
           ignore-unfixed: false
+      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
       - name: Publish scanned main image
         run: |
           docker push "$IMAGE:git-$GITHUB_SHA"
           docker push "$IMAGE:latest"
+      - name: Retain registry attestation evidence
+        run: |
+          mkdir -p image-evidence
+          docker buildx imagetools inspect "$IMAGE:git-$GITHUB_SHA" --raw > image-evidence/index.json
+          docker buildx imagetools inspect "$IMAGE:git-$GITHUB_SHA" --format '{{ json .Provenance.SLSA }}' > image-evidence/provenance.json
+          docker buildx imagetools inspect "$IMAGE:git-$GITHUB_SHA" --format '{{ json .SBOM.SPDX }}' > image-evidence/sbom.json
+          jq -e '.manifests | any(.annotations["vnd.docker.reference.type"] == "attestation-manifest")' image-evidence/index.json
+          jq -e '. != null' image-evidence/provenance.json
+          jq -e '. != null' image-evidence/sbom.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: main-image-attestations
+          retention-days: 7
+          path: image-evidence/

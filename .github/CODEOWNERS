@@ -1,0 +1,10 @@
+# Repository owner; require an eligible independent owner before enforcing self-authored PR reviews.
+/.github/CODEOWNERS @renf7
+/.github/workflows/ @renf7
+/pom.xml @renf7
+/Dockerfile @renf7
+/.mvn/ @renf7
+/mvnw* @renf7
+/src/main/java/eu/rsdsoftware/auth/ @renf7
+/src/main/resources/ @renf7
+/tools/security/ @renf7

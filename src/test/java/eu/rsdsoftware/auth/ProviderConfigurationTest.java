@@ -40,7 +40,7 @@ class ProviderConfigurationTest {
         var empty=new ProviderRegistrations(TestSigningMaterial.settings(false),new MockEnvironment());
         assertNull(empty.findByRegistrationId("google")); assertFalse(empty.iterator().hasNext());
         assertTrue(empty.availability().stream().allMatch(v -> Boolean.FALSE.equals(v.get("enabled"))));
-        assertThrows(IllegalArgumentException.class,()->new ProviderRegistrations(TestSigningMaterial.settings(false),configured().withProperty("rsds.auth.providers.microsoft.tenant","common")));
+        assertThrows(IllegalArgumentException.class,()->new ProviderRegistrations(TestSigningMaterial.settings(false),configured().withProperty("rsds.auth.providers.microsoft.tenant","https://attacker.invalid")));
         assertThrows(IllegalArgumentException.class,()->new ProviderRegistrations(TestSigningMaterial.settings(false),configured().withProperty("rsds.auth.providers.facebook.graph-version","https://attacker.invalid")));
     }
     @Test void appleClientSecretIsShortLivedAndSignedWithTheMountedEcKey() throws Exception {

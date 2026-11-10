@@ -13,6 +13,8 @@ public final class ProviderRegistrations implements ClientRegistrationRepository
         var result=new LinkedHashMap<String,ClientRegistration>();
         for(String id:PROVIDERS) {
             String prefix="rsds.auth.providers."+id+".";
+            // RSDSINFRA-32: deferred until an explicit decision to fund Apple membership.
+            if("apple".equals(id) && !env.getProperty(prefix+"enabled",Boolean.class,false)) continue;
             String clientId=settings.fixtureProviders()?"local-"+id:env.getProperty(prefix+"client-id");
             if(!settings.fixtureProviders() && "local-apple".equals(clientId)) continue;
             if(clientId==null || clientId.isBlank()) continue;

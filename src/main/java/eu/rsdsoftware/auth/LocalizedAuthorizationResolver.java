@@ -7,7 +7,11 @@ import org.springframework.security.oauth2.core.endpoint.*;
 /** Only two fixed return routes are accepted; no browser-supplied redirect URL is used. */
 public final class LocalizedAuthorizationResolver implements OAuth2AuthorizationRequestResolver {
     private final DefaultOAuth2AuthorizationRequestResolver delegate;
+    private final Set<String> registered;
     public LocalizedAuthorizationResolver(ProviderRegistrations providers,AuthSettings settings) {
+        registered=java.util.stream.StreamSupport.stream(providers.spliterator(),false)
+            .map(org.springframework.security.oauth2.client.registration.ClientRegistration::getRegistrationId)
+            .collect(java.util.stream.Collectors.toUnmodifiableSet());
         delegate=new DefaultOAuth2AuthorizationRequestResolver(providers,"/api/auth/oauth2/authorization");
         delegate.setAuthorizationRequestCustomizer(builder -> builder.attributes(attributes -> {
             String id=(String)attributes.get(OAuth2ParameterNames.REGISTRATION_ID);
@@ -20,8 +24,16 @@ public final class LocalizedAuthorizationResolver implements OAuth2Authorization
         if(authorization!=null) request.getSession(true).setAttribute("uiLanguage","pl".equals(request.getParameter("lang"))?"pl":"en");
         return authorization;
     }
-    @Override public OAuth2AuthorizationRequest resolve(HttpServletRequest request) { return remember(request,delegate.resolve(request)); }
-    @Override public OAuth2AuthorizationRequest resolve(HttpServletRequest request,String id) { return remember(request,delegate.resolve(request,id)); }
+    @Override public OAuth2AuthorizationRequest resolve(HttpServletRequest request) {
+        String prefix="/api/auth/oauth2/authorization/";
+        String path=request.getServletPath();
+        // Unregistered providers must fall through to 404, not a framework exception/500.
+        if(path.startsWith(prefix) && !registered.contains(path.substring(prefix.length()))) return null;
+        return remember(request,delegate.resolve(request));
+    }
+    @Override public OAuth2AuthorizationRequest resolve(HttpServletRequest request,String id) {
+        return registered.contains(id)?remember(request,delegate.resolve(request,id)):null;
+    }
     public static boolean polishReturn(HttpServletRequest request) {
         var session=request.getSession(false);
         return session!=null && "pl".equals(session.getAttribute("uiLanguage"));

@@ -21,7 +21,9 @@ public final class AuthController {
     public AuthController(IdentityService identities,RefreshService refresh,SessionCookies cookies,TokenService tokens,ProviderRegistrations providers,EmailVerification verification) {
         this.identities=identities; this.refresh=refresh; this.cookies=cookies; this.tokens=tokens; this.providers=providers; this.verification=verification;
     }
-    @GetMapping("/providers") public Object providers() { return providers.availability(); }
+    @GetMapping("/providers") public Object providers() {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(providers.availability());
+    }
     @GetMapping("/session") public Object session(@AuthenticationPrincipal Jwt jwt,HttpServletRequest request) {
         // Presence is only a recovery hint; refresh validates the credential separately.
         if(jwt==null) return Map.of("authenticated",false,"refreshAvailable",SessionCookies.read(request,"RSDS_REFRESH")!=null);

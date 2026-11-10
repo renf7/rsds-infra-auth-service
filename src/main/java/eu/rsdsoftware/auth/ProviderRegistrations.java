@@ -9,7 +9,9 @@ import org.springframework.stereotype.Component;
 public final class ProviderRegistrations implements ClientRegistrationRepository,Iterable<ClientRegistration> {
     public static final List<String> PROVIDERS=List.of("facebook","microsoft","google","apple","github");
     private final Map<String,ClientRegistration> registrations;
+    private final ProviderVisibility visibility;
     public ProviderRegistrations(AuthSettings settings,Environment env) {
+        visibility=new ProviderVisibility(env);
         var result=new LinkedHashMap<String,ClientRegistration>();
         for(String id:PROVIDERS) {
             String prefix="rsds.auth.providers."+id+".";
@@ -62,7 +64,9 @@ public final class ProviderRegistrations implements ClientRegistrationRepository
     @Override public ClientRegistration findByRegistrationId(String id) { return registrations.get(id); }
     @Override public Iterator<ClientRegistration> iterator() { return registrations.values().iterator(); }
     public List<Map<String,Object>> availability() {
-        return PROVIDERS.stream().map(id -> Map.<String,Object>of("id",id,"enabled",registrations.containsKey(id))).toList();
+        var visible=visibility.visible();
+        return PROVIDERS.stream().map(id -> Map.<String,Object>of("id",id,"enabled",registrations.containsKey(id),
+            "visible",registrations.containsKey(id) && visible.contains(id))).toList();
     }
 }
 

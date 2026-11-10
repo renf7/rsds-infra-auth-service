@@ -1,5 +1,8 @@
 # rsds-infra-auth-service
 
+For personal and organizational Microsoft accounts without guest invitations, see
+[public Microsoft sign-in configuration and validation](docs/microsoft-production.md).
+
 Authentication backend for the one RSDS-INFRA frontend. Jira: [RSDSINFRA-16](https://rsdsoftware.atlassian.net/browse/RSDSINFRA-16), JWT/session RSDSINFRA-17, persistence RSDSINFRA-15, UI RSDSINFRA-19.
 
 Baseline: Spring Boot 4.1.2, Java 27 (latest stable verified 30 October 2026), Spring Security-managed OAuth2/OIDC and JWT libraries. Public repository; free scanners only. Read [AGENTS.md](AGENTS.md) and the [repository standard](https://github.com/renf7/rsds-infra-helm/blob/main/docs/security/REPOSITORY-STANDARD.md).

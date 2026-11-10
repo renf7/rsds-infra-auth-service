@@ -1,5 +1,9 @@
 # Agent instructions
 
+Microsoft public login: `common` accepts personal and organizational tenants with
+strict tenant/issuer/signing-key checks; explicit tenant UUIDs remain supported.
+See docs/microsoft-production.md. Never disable issuer validation to enable it.
+
 This repository belongs to renf7's RSDS-INFRA family. Before changing or bootstrapping repositories named rsds-infra*, read and follow the repository security standard:
 https://github.com/renf7/rsds-infra-helm/blob/main/docs/security/REPOSITORY-STANDARD.md
 While the setup is unmerged, the standard is available in Helm PR #4 (branch RSDSINFRA-24-security-scanning). If checked out together, read ../rsds-infra-helm/docs/security/REPOSITORY-STANDARD.md.

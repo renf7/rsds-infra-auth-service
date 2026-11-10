@@ -14,6 +14,9 @@ import org.springframework.security.oauth2.server.resource.web.DefaultBearerToke
 
 @Configuration
 public class SecurityConfiguration {
+    @Bean org.springframework.security.oauth2.jwt.JwtDecoderFactory<org.springframework.security.oauth2.client.registration.ClientRegistration> idTokenDecoderFactory() throws java.net.MalformedURLException {
+        return new MicrosoftOidcDecoderFactory();
+    }
     @Bean SecurityFilterChain security(HttpSecurity http,ProviderRegistrations providers,AuthSettings settings,
             AppleClientSecret apple,IdentityService identities,TokenService tokens,RefreshService refresh,SessionCookies cookies,
             org.springframework.security.oauth2.client.userinfo.OAuth2UserService<org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest,org.springframework.security.oauth2.core.user.OAuth2User> providerUsers) throws Exception {

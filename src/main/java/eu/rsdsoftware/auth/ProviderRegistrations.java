@@ -35,7 +35,8 @@ public final class ProviderRegistrations implements ClientRegistrationRepository
                     .userInfoUri("https://openidconnect.googleapis.com/v1/userinfo").userNameAttributeName("sub").scope("openid","profile");
                 case "microsoft" -> {
                     String tenant=env.getRequiredProperty(prefix+"tenant");
-                    if(!tenant.matches("[0-9a-fA-F-]{36}")) throw new IllegalArgumentException("Microsoft requires an explicit tenant UUID");
+                    if(!"common".equals(tenant) && !MicrosoftOidcDecoderFactory.validTenant(tenant))
+                        throw new IllegalArgumentException("Microsoft requires common or a canonical tenant UUID");
                     String base="https://login.microsoftonline.com/"+tenant;
                     builder.issuerUri(base+"/v2.0").authorizationUri(base+"/oauth2/v2.0/authorize").tokenUri(base+"/oauth2/v2.0/token")
                         .jwkSetUri(base+"/discovery/v2.0/keys").userInfoUri("https://graph.microsoft.com/oidc/userinfo").userNameAttributeName("sub").scope("openid","profile");

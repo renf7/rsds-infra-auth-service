@@ -7,14 +7,14 @@ class IdentityAndRefreshTest {
         var store=new InMemoryDocumentStore(); var service=new IdentityService(store);
         var google=service.login("google","issuer-google","alice","Alice","alice@example.test",true);
         assertEquals(google,service.login("google","issuer-google","alice","changed name","alice@example.test",true));
-        assertEquals(google.subject(),service.login("github","github","alice","Alice","alice@example.test",true).subject());
+        assertNotEquals(google.subject(),service.login("github","github","alice","Alice","alice@example.test",true).subject());
         assertTrue(google.roles().isEmpty());
         assertThrows(IllegalArgumentException.class,()->service.login("google","issuer","","Alice","alice@example.test",true));
     }
     @Test void rolesComeOnlyFromTheTrustedIdentityRecord() {
         var store=new InMemoryDocumentStore(); var service=new IdentityService(store);
         var identity=service.login("google","issuer","alice","Alice","alice@example.test",true);
-        var key="auth:v2:email:"+EmailAddress.hash(identity.email()); var row=store.get(key).orElseThrow();
+        var key=store.get("auth:v2:account:"+identity.subject()).orElseThrow().values().get("emailKey"); var row=store.get(key).orElseThrow();
         var values=new HashMap<>(row.values()); values.put("roles","JOB_REPLY,ADMIN,COMPETENCE_BUILDER");
         store.replace(key,row.revision(),values);
         assertEquals(List.of("JOB_REPLY","COMPETENCE_BUILDER"),service.find(identity.subject()).orElseThrow().roles());

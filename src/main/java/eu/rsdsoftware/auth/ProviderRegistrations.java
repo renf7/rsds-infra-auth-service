@@ -27,28 +27,28 @@ public final class ProviderRegistrations implements ClientRegistrationRepository
             if(settings.fixtureProviders()) {
                 String base=settings.idpBase()+"/"+id;
                 builder.authorizationUri(base+"/authorize").tokenUri(base+"/token").userInfoUri(base+"/userinfo").userNameAttributeName(oidc?"sub":"id");
-                if(oidc) builder.issuerUri(base).jwkSetUri(base+"/jwks").scope("openid","profile","email");
-                else builder.scope(id.equals("github")?new String[]{"read:user","user:email"}:new String[]{"public_profile","email"});
+                if(oidc) builder.issuerUri(base).jwkSetUri(base+"/jwks").scope("openid","profile");
+                else builder.scope(id.equals("github")?new String[]{"read:user"}:new String[]{"public_profile"});
             } else switch(id) {
                 case "google" -> builder.issuerUri("https://accounts.google.com").authorizationUri("https://accounts.google.com/o/oauth2/v2/auth")
                     .tokenUri("https://oauth2.googleapis.com/token").jwkSetUri("https://www.googleapis.com/oauth2/v3/certs")
-                    .userInfoUri("https://openidconnect.googleapis.com/v1/userinfo").userNameAttributeName("sub").scope("openid","profile","email");
+                    .userInfoUri("https://openidconnect.googleapis.com/v1/userinfo").userNameAttributeName("sub").scope("openid","profile");
                 case "microsoft" -> {
                     String tenant=env.getRequiredProperty(prefix+"tenant");
                     if(!tenant.matches("[0-9a-fA-F-]{36}")) throw new IllegalArgumentException("Microsoft requires an explicit tenant UUID");
                     String base="https://login.microsoftonline.com/"+tenant;
                     builder.issuerUri(base+"/v2.0").authorizationUri(base+"/oauth2/v2.0/authorize").tokenUri(base+"/oauth2/v2.0/token")
-                        .jwkSetUri(base+"/discovery/v2.0/keys").userInfoUri("https://graph.microsoft.com/oidc/userinfo").userNameAttributeName("sub").scope("openid","profile","email");
+                        .jwkSetUri(base+"/discovery/v2.0/keys").userInfoUri("https://graph.microsoft.com/oidc/userinfo").userNameAttributeName("sub").scope("openid","profile");
                 }
                 case "apple" -> builder.issuerUri("https://appleid.apple.com").authorizationUri("https://appleid.apple.com/auth/authorize")
-                    .tokenUri("https://appleid.apple.com/auth/token").jwkSetUri("https://appleid.apple.com/auth/keys").userNameAttributeName("sub").scope("openid","name","email");
+                    .tokenUri("https://appleid.apple.com/auth/token").jwkSetUri("https://appleid.apple.com/auth/keys").userNameAttributeName("sub").scope("openid","name");
                 case "github" -> builder.authorizationUri("https://github.com/login/oauth/authorize").tokenUri("https://github.com/login/oauth/access_token")
-                    .userInfoUri("https://api.github.com/user").userNameAttributeName("id").scope("read:user","user:email");
+                    .userInfoUri("https://api.github.com/user").userNameAttributeName("id").scope("read:user");
                 case "facebook" -> {
                     String version=env.getRequiredProperty(prefix+"graph-version");
                     if(!version.matches("v[0-9]+\\.[0-9]+")) throw new IllegalArgumentException("Configure a supported Facebook Graph API version");
                     builder.authorizationUri("https://www.facebook.com/"+version+"/dialog/oauth").tokenUri("https://graph.facebook.com/"+version+"/oauth/access_token")
-                        .userInfoUri("https://graph.facebook.com/"+version+"/me?fields=id,name,email").userNameAttributeName("id").scope("public_profile","email");
+                        .userInfoUri("https://graph.facebook.com/"+version+"/me?fields=id,name").userNameAttributeName("id").scope("public_profile");
                 }
                 default -> throw new IllegalStateException("Unsupported provider");
             }

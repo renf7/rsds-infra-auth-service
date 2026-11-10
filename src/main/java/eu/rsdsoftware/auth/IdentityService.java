@@ -14,7 +14,7 @@ public final class IdentityService {
     @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value="EI_EXPOSE_REP2",justification="Intentionally shared injected persistence port; atomic account uniqueness requires the same backing store. No reference is exposed.")
     public IdentityService(DocumentStore store) {this.store=store;}
     private static String bindingKey(String provider,String issuer,String externalSubject) {
-        if(!ProviderRegistrations.PROVIDERS.contains(provider) || issuer==null || externalSubject==null || externalSubject.isBlank())
+        if(!ProviderRegistrations.PROVIDERS.contains(provider) || issuer==null || issuer.isBlank() || externalSubject==null || externalSubject.isBlank())
             throw new IllegalArgumentException("Missing immutable provider identity");
         return "auth:v2:binding:"+EmailAddress.hash(provider+"\n"+issuer+"\n"+externalSubject);
     }
@@ -24,24 +24,13 @@ public final class IdentityService {
     public Identity login(String provider,String issuer,String externalSubject,String name,String email,boolean verified) {
         String binding=bindingKey(provider,issuer,externalSubject);
         var existing=linked(provider,issuer,externalSubject); if(existing.isPresent()) return existing.get();
-        if(!verified) {
-            String key="auth:v2:provider-account:"+EmailAddress.hash(binding);
-            var values=new HashMap<>(Map.of("subject",UUID.randomUUID().toString(),"email","",
-                "name",name==null?"User":name.substring(0,Math.min(name.length(),128)),"roles","","schema","2","avatarColor",AccountAvatar.randomColor()));
-            // Provider authentication proves identity, not ownership of an unverified email.
-            if(email!=null && !email.isBlank()) values.put("contactEmail",EmailAddress.normalize(email));
-            store.insert(key,values);
-            var account=store.get(key).orElseThrow().values();
-            store.insert("auth:v2:account:"+account.get("subject"),Map.of("emailKey",key));
-            store.insert(binding,Map.of("subject",account.get("subject")));
-            return linked(provider,issuer,externalSubject).orElseThrow();
-        }
-        String normalized=EmailAddress.normalize(email), emailKey="auth:v2:email:"+EmailAddress.hash(normalized);
-        store.insert(emailKey,Map.of("subject",UUID.randomUUID().toString(),"email",normalized,
-            "name",name==null?"User":name.substring(0,Math.min(name.length(),128)),"roles","","schema","2","avatarColor",AccountAvatar.randomColor()));
-        var account=store.get(emailKey).orElseThrow().values();
-        store.insert("auth:v2:account:"+account.get("subject"),Map.of("emailKey",emailKey));
-        // Crash retries repair indices. Existing provider bindings are never reassigned.
+        // Provider authentication is the identity proof. Email (even verified) never links accounts.
+        String key="auth:v2:provider-account:"+EmailAddress.hash(binding);
+        var values=new HashMap<>(Map.of("subject",UUID.randomUUID().toString(),"email","",
+            "name",name==null?"User":name.substring(0,Math.min(name.length(),128)),"roles","","schema","3","avatarColor",AccountAvatar.randomColor()));
+        store.insert(key,values);
+        var account=store.get(key).orElseThrow().values();
+        store.insert("auth:v2:account:"+account.get("subject"),Map.of("emailKey",key));
         store.insert(binding,Map.of("subject",account.get("subject")));
         return linked(provider,issuer,externalSubject).orElseThrow();
     }

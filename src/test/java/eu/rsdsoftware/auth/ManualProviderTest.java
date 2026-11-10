@@ -21,7 +21,7 @@ class ManualProviderTest {
         var auth=new LocalizedAuthorizationResolver(clients,live()).resolve(request);
         assertEquals("https://github.com/login/oauth/authorize",auth.getAuthorizationUri());
         assertEquals("http://127.0.0.1:18092/api/auth/login/oauth2/code/github",auth.getRedirectUri());
-        assertTrue(clients.findByRegistrationId("github").getScopes().contains("user:email"));
+        assertEquals(java.util.Set.of("read:user"),clients.findByRegistrationId("github").getScopes());
     }
     @Test void invalidModeAndProductionFixtureAreRejected() {
         assertThrows(IllegalArgumentException.class,()->new AuthSettings(false,"i","a","k","c","r","t","e","b","fixture"));

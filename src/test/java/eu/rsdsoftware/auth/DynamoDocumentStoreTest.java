@@ -11,7 +11,7 @@ class DynamoDocumentStoreTest extends DocumentStoreContract {
         var identities=new IdentityService(store()); String suffix=java.util.UUID.randomUUID().toString();
         var first=identities.login("google","issuer",suffix,"Alice",suffix+"@example.test",true);
         var next=identities.login("github","github",suffix,"Alice",suffix+"@example.test",true);
-        org.junit.jupiter.api.Assertions.assertEquals(first.subject(),next.subject());
+        org.junit.jupiter.api.Assertions.assertNotEquals(first.subject(),next.subject());
         org.junit.jupiter.api.Assertions.assertEquals(first,identities.find(first.subject()).orElseThrow());
     }
     @Override DocumentStore store() {

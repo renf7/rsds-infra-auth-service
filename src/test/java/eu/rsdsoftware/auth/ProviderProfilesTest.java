@@ -15,26 +15,26 @@ class ProviderProfilesTest {
         var token=new OidcIdToken("test-token",Instant.now(),Instant.now().plusSeconds(60),values);
         return ProviderProfiles.read(new OAuth2AuthenticationToken(new DefaultOidcUser(authorities,token),authorities,provider));
     }
-    @Test void authoritativeGoogleAndVerifiedAppleEmailsCanContinueDirectly() {
-        assertTrue(oidc("google",Map.of("email","alice@gmail.com","email_verified",true)).verified());
-        assertTrue(oidc("google",Map.of("email","alice@example.test","email_verified",true,"hd","example.test")).verified());
+    @Test void googleAndAppleEmailClaimsAreNotIdentityInputs() {
+        assertFalse(oidc("google",Map.of("email","alice@gmail.com","email_verified",true)).verified());
+        assertFalse(oidc("google",Map.of("email","alice@example.test","email_verified",true,"hd","example.test")).verified());
         assertFalse(oidc("google",Map.of("email","alice@example.test","email_verified",true)).verified());
         assertFalse(oidc("google",Map.of("email","alice@gmail.com","email_verified",false)).verified());
-        assertTrue(oidc("apple",Map.of("email","alice@privaterelay.appleid.com","email_verified","true")).verified());
+        assertFalse(oidc("apple",Map.of("email","alice@privaterelay.appleid.com","email_verified","true")).verified());
     }
     @Test void microsoftEmailAndProfileVerificationAreNotOwnershipProof() {
         assertFalse(oidc("microsoft",Map.of("email","victim@example.test","email_verified",true)).verified());
         var user=new DefaultOAuth2User(authorities,Map.of("id","123","email","victim@example.test","verified",true),"id");
         assertFalse(ProviderProfiles.read(new OAuth2AuthenticationToken(user,authorities,"facebook")).verified());
     }
-    @Test void missingAndMalformedEmailsRequireTheFallback() {
+    @Test void missingAndMalformedEmailsAreDiscarded() {
         assertNull(oidc("apple",Map.of()).email());
         assertNull(oidc("google",Map.of("email","invalid","email_verified",true)).email());
         assertFalse(oidc("apple",Map.of("email","alice@example.test","email_verified","false")).verified());
     }
-    @Test void githubUsesTheServerLoadedVerifiedEmailMarker() {
+    @Test void githubEmailMarkersAreIgnored() {
         var user=new DefaultOAuth2User(authorities,Map.of("id","123","email","alice@example.test","app_verified_email",true),"id");
-        assertTrue(ProviderProfiles.read(new OAuth2AuthenticationToken(user,authorities,"github")).verified());
+        assertFalse(ProviderProfiles.read(new OAuth2AuthenticationToken(user,authorities,"github")).verified());
     }
     @Test void githubUsernameSuppliesTheAccountNameWhenDisplayNameIsMissing() {
         var user=new DefaultOAuth2User(authorities,Map.of("id","123","login","rsdstest4"),"id");

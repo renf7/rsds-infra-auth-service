@@ -70,7 +70,7 @@ class ApiSecurityTest {
         assertEquals(400,jsonPost("/api/auth/verify-email",flow,csrf,"{\"code\":\""+wrong+"\"}").statusCode());
         assertEquals(204,jsonPost("/api/auth/verify-email",flow,csrf,"{\"code\":\""+correct+"\"}").statusCode());
         assertEquals(200,get("/api/auth/me",null).statusCode());
-        assertTrue(get("/api/auth/session",null).body().contains(email));
+        assertFalse(get("/api/auth/session",null).body().contains(email));
         assertEquals(400,jsonPost("/api/auth/verify-email",flow,csrf,"{\"code\":\""+correct+"\"}").statusCode());
     }
     @Test void anonymousSessionProtectedResourceAndCsrfAreEnforced() throws Exception {

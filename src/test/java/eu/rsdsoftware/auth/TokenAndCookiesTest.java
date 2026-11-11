@@ -43,6 +43,14 @@ class TokenAndCookiesTest {
             assertThrows(org.springframework.security.oauth2.jwt.JwtException.class,()->service.decoder().decode(signed.serialize()),invalid);
         }
     }
+    @Test void attackerSignatureWithTheTrustedKeyIdIsRejected() throws Exception {
+        var service=new TokenService(TestSigningMaterial.settings(false));
+        var genuine=SignedJWT.parse(service.issue(new IdentityService.Identity("alice","google","Alice",List.of())));
+        var generator=KeyPairGenerator.getInstance("RSA"); generator.initialize(2048);
+        var forged=new SignedJWT(genuine.getHeader(),genuine.getJWTClaimsSet());
+        forged.sign(new RSASSASigner((RSAPrivateKey)generator.generateKeyPair().getPrivate()));
+        assertThrows(org.springframework.security.oauth2.jwt.JwtException.class,()->service.decoder().decode(forged.serialize()));
+    }
     @Test void cookiesAreHttpOnlySecureInProductionAndScopedForRefresh() {
         var cookies=new SessionCookies(TestSigningMaterial.settings(false)); var response=new MockHttpServletResponse();
         cookies.issue(response,"test-access","test-refresh");

@@ -40,3 +40,15 @@ acceptance uses only local provider-boundary fixtures with real app/JWT/DynamoDB
 Live-provider sign-in remains an independent manual test.
 
 The broader RSDSINFRA-11 job/competence contracts remain pending those services.
+
+## RSDSINFRA-45 identity contract
+
+The composite external identity is `(provider, issuer, immutable provider subject)`;
+identical usernames or subjects from different providers/tenants do not collide.
+Display names are presentation data. Optional contact emails can be empty or duplicated
+across accounts and never grant roles or link identities. The internal UUID remains
+the JWT subject. Control characters are rejected before constructing the existing
+newline-delimited hashed binding; valid stored keys and legacy links are unchanged.
+No migration or new database/index is needed. AccountIdentityContractTest covers
+cross-provider/issuer collisions, display-name changes and duplicate/cleared contact
+emails; existing concurrency and legacy-binding tests remain required.

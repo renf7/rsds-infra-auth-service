@@ -14,9 +14,13 @@ public final class IdentityService {
     @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value="EI_EXPOSE_REP2",justification="Intentionally shared injected persistence port; atomic account uniqueness requires the same backing store. No reference is exposed.")
     public IdentityService(DocumentStore store) {this.store=store;}
     private static String bindingKey(String provider,String issuer,String externalSubject) {
-        if(!ProviderRegistrations.PROVIDERS.contains(provider) || issuer==null || issuer.isBlank() || externalSubject==null || externalSubject.isBlank())
+        if(!ProviderRegistrations.PROVIDERS.contains(provider) || !validIdentityPart(issuer) || !validIdentityPart(externalSubject))
             throw new IllegalArgumentException("Missing immutable provider identity");
         return "auth:v2:binding:"+EmailAddress.hash(provider+"\n"+issuer+"\n"+externalSubject);
+    }
+    // Preserve existing keys while preventing ambiguous newline-delimited tuples.
+    private static boolean validIdentityPart(String value) {
+        return value!=null && !value.isBlank() && value.codePoints().noneMatch(Character::isISOControl);
     }
     public Optional<Identity> linked(String provider,String issuer,String externalSubject) {
         return store.get(bindingKey(provider,issuer,externalSubject)).flatMap(row->find(row.values().get("subject")));

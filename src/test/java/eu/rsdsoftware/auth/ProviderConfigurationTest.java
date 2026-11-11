@@ -20,6 +20,7 @@ class ProviderConfigurationTest {
         }
         env.withProperty("rsds.auth.providers.microsoft.tenant","00000000-0000-0000-0000-000000000001");
         env.withProperty("rsds.auth.providers.facebook.graph-version","v25.0");
+        env.withProperty("rsds.auth.providers.apple.enabled","true"); // Isolated retained protocol tests only.
         return env;
     }
     @Test void productionRegistrationsUseProviderTlsEndpointsAndExactCallbackPaths() {

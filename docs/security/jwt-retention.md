@@ -50,6 +50,11 @@ belongs to an operator. Verify numeric metadata on a disposable fixture before P
 on application startup. Compile/package normally, construct the Maven runtime
 classpath, then invoke with `region table private-checkpoint-file [--apply]`.
 Without `--apply` it reports aggregate counts only and changes nothing. Each call
+uses `RSDS_AUTH_REFRESH_RETENTION_SECONDS` from the operator environment (same
+1–30 day bounds as the app); set it to the production value before dry-run/apply.
+Pending/mail records always use one day. Backfill changes revision and TTL together,
+so ordinary replacements holding an old revision cannot erase the new metadata.
+Each call
 scans at most 100 evaluated rows. Review dry-run counts, then run with `--apply`;
 repeat while `more=true`. A private checkpoint advances only when no CAS conflicts
 occur. With conflicts, rerun the same page. Keep dry-run and apply on the same page.

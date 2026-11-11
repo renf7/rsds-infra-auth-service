@@ -18,10 +18,15 @@ public final class RetentionBackfill {
         var checkpoint=java.nio.file.Path.of(args[2]);
         
         try(var client=DynamoDbClient.builder().region(Region.of(args[0])).build()) {
-            run(client,args[1],checkpoint,apply);
+            String configured=System.getenv("RSDS_AUTH_REFRESH_RETENTION_SECONDS");
+            run(client,args[1],checkpoint,apply,configured==null?86400:Long.parseLong(configured));
         }
     }
     public static void run(DynamoDbClient client,String table,java.nio.file.Path checkpoint,boolean apply) throws Exception {
+        run(client,table,checkpoint,apply,86400);
+    }
+    public static void run(DynamoDbClient client,String table,java.nio.file.Path checkpoint,boolean apply,long refreshRetentionSeconds) throws Exception {
+        if(refreshRetentionSeconds<86400 || refreshRetentionSeconds>2592000) throw new IllegalArgumentException("Retention must be 1 to 30 days");
         String start=java.nio.file.Files.exists(checkpoint)?java.nio.file.Files.readString(checkpoint).strip():"";
             var request=ScanRequest.builder().tableName(table).limit(100).consistentRead(true)
                 .projectionExpression("pk,revision,document,authDeleteAfter");
@@ -34,16 +39,17 @@ public final class RetentionBackfill {
                 Instant deadline;
                 try {
                     var values=item.get("document").m().entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey,e->e.getValue().s()));
-                    deadline=TransientRetention.deadline(key,values,86400);
+                    deadline=TransientRetention.deadline(key,values,key.startsWith("auth:v1:refresh:")?refreshRetentionSeconds:86400);
                 } catch(IllegalArgumentException invalid) {skipped++;continue;}
                 eligible++;
                 // Old expired rows receive a full day for review/rollback; no immediate mass deletion.
                 long deletion=Math.max(deadline.getEpochSecond(),Instant.now().plusSeconds(86400).getEpochSecond());
                 if(apply) try {
                     client.updateItem(r->r.tableName(table).key(Map.of("pk",AttributeValue.fromS(key)))
-                        .updateExpression("SET authDeleteAfter = :ttl")
+                        .updateExpression("SET authDeleteAfter = :ttl, revision = :next")
                         .conditionExpression("revision = :revision AND attribute_not_exists(authDeleteAfter)")
-                        .expressionAttributeValues(Map.of(":ttl",AttributeValue.fromN(Long.toString(deletion)),":revision",item.get("revision"))));
+                        .expressionAttributeValues(Map.of(":ttl",AttributeValue.fromN(Long.toString(deletion)),":revision",item.get("revision"),
+                            ":next",AttributeValue.fromS(UUID.randomUUID().toString()))));
                     changed++;
                 } catch(ConditionalCheckFailedException concurrentChange) {conflicts++;}
             }

@@ -9,9 +9,21 @@ import org.springframework.stereotype.Service;
 @Service
 public final class RefreshService {
     private final DocumentStore store;
+    private final java.time.Clock clock;
+    private final long retentionSeconds;
     private final SecureRandom random=new SecureRandom();
-    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value="EI_EXPOSE_REP2",justification="Intentionally shared injected persistence port; atomic refresh rotation requires the same backing store. No reference is exposed.")
-    public RefreshService(DocumentStore store) { this.store=store; }
+    @org.springframework.beans.factory.annotation.Autowired
+    public RefreshService(DocumentStore store,org.springframework.core.env.Environment env) {
+        this(store,java.time.Clock.systemUTC(),env.getProperty("rsds.auth.refresh-retention-seconds",Long.class,86400L));
+    }
+    public RefreshService(DocumentStore store) { this(store,java.time.Clock.systemUTC(),86400L); }
+    RefreshService(DocumentStore store,java.time.Clock clock,long retentionSeconds) {
+        if(retentionSeconds<86400 || retentionSeconds>2592000) throw new IllegalArgumentException("Retention must be 1 to 30 days");
+        this.store=store; this.clock=clock; this.retentionSeconds=retentionSeconds;
+    }
+    private Instant deletion(Map<String,String> values) {
+        return Instant.ofEpochSecond(Long.parseLong(values.get("expires"))).plusSeconds(retentionSeconds);
+    }
     public record Rotation(String subject,String token) {}
     private String secret() { byte[] bytes=new byte[32]; random.nextBytes(bytes); return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes); }
     private static String hash(String value) {
@@ -20,7 +32,8 @@ public final class RefreshService {
     }
     public String create(String subject) {
         String family=UUID.randomUUID().toString(), token=family+"."+secret();
-        if(!store.insert("auth:v1:refresh:"+family,Map.of("subject",subject,"hash",hash(token),"expires",Long.toString(Instant.now().plusSeconds(604800).getEpochSecond()),"revoked","false","schema","1")))
+        var values=Map.of("subject",subject,"hash",hash(token),"expires",Long.toString(clock.instant().plusSeconds(604800).getEpochSecond()),"revoked","false","schema","1");
+        if(!store.insertExpiring("auth:v1:refresh:"+family,values,deletion(values)))
             throw new IllegalStateException("Refresh collision");
         return token;
     }
@@ -32,12 +45,12 @@ public final class RefreshService {
         for(int attempt=0;attempt<4;attempt++) {
             var row=store.get(key); if(row.isEmpty()) return Optional.empty();
             var values=row.get().values();
-            if(Boolean.parseBoolean(values.get("revoked")) || Long.parseLong(values.get("expires"))<=Instant.now().getEpochSecond()) return Optional.empty();
+            if(Boolean.parseBoolean(values.get("revoked")) || Long.parseLong(values.get("expires"))<=clock.instant().getEpochSecond()) return Optional.empty();
             boolean matches=MessageDigest.isEqual(hash(token).getBytes(StandardCharsets.US_ASCII),values.get("hash").getBytes(StandardCharsets.US_ASCII));
             var replacement=new HashMap<>(values);
             String next=family+"."+secret();
             if(!matches) replacement.put("revoked","true"); else replacement.put("hash",hash(next));
-            if(store.replace(key,row.get().revision(),replacement)) return matches?Optional.of(new Rotation(values.get("subject"),next)):Optional.empty();
+            if(store.replaceExpiring(key,row.get().revision(),replacement,deletion(values))) return matches?Optional.of(new Rotation(values.get("subject"),next)):Optional.empty();
         }
         throw new IllegalStateException("Concurrent refresh update did not settle");
     }
@@ -49,7 +62,7 @@ public final class RefreshService {
         for(int attempt=0;attempt<4;attempt++) {
             var row=store.get(key); if(row.isEmpty()) return;
             var replacement=new HashMap<>(row.get().values()); replacement.put("revoked","true");
-            if(store.replace(key,row.get().revision(),replacement)) return;
+            if(store.replaceExpiring(key,row.get().revision(),replacement,deletion(replacement))) return;
         }
         throw new IllegalStateException("Refresh revocation failed");
     }

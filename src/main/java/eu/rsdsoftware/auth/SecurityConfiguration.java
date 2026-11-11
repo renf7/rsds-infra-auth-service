@@ -30,7 +30,11 @@ public class SecurityConfiguration {
         var headers=new DefaultBearerTokenResolver();
         var csrfCookies=new CookieCsrfTokenRepository();
         csrfCookies.setCookieCustomizer(cookie -> cookie.secure(!settings.local()).sameSite("Lax"));
-        return http.authorizeHttpRequests(auth -> auth.requestMatchers("/api/auth/me","/api/auth/settings").authenticated().anyRequest().permitAll())
+        return http.authorizeHttpRequests(auth -> auth.requestMatchers("/api/auth/me","/api/auth/settings").authenticated()
+                .requestMatchers("/api/auth/providers","/api/auth/session","/api/auth/csrf","/api/auth/refresh","/api/auth/logout",
+                    "/api/auth/email-verification","/api/auth/email-code","/api/auth/verify-email","/api/auth/.well-known/jwks.json",
+                    "/api/auth/oauth2/authorization/*","/api/auth/login/oauth2/code/*","/actuator/health","/error").permitAll()
+                .anyRequest().denyAll())
             .csrf(csrf -> configureAppleCallbackCsrf(csrf,csrfCookies))
             .requestCache(AbstractHttpConfigurer::disable).logout(AbstractHttpConfigurer::disable)
             .oauth2Login(oauth -> oauth.authorizationEndpoint(endpoint -> endpoint.authorizationRequestResolver(resolver))

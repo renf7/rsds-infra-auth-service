@@ -40,7 +40,27 @@ public final class TokenService {
             .orElseThrow(() -> new IllegalStateException("Signing key is not in the pinned certificate bundle"));
         this.signing=new RSAKey.Builder(active.getValue()).privateKey(privateKey).keyID(active.getKey()).build();
         this.trusted=Map.copyOf(publicKeys);
-        this.decoder=PinnedJwtVerifier.decoder(trusted,settings.issuer(),settings.audience());
+        var decoders=new HashMap<String,JwtDecoder>();
+        trusted.forEach((id,key) -> {
+            var verifier=NimbusJwtDecoder.withPublicKey(key).signatureAlgorithm(org.springframework.security.oauth2.jose.jws.SignatureAlgorithm.RS256).build();
+            verifier.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
+                new JwtTimestampValidator(Duration.ZERO), new JwtIssuerValidator(settings.issuer()),
+                new JwtClaimValidator<List<String>>("aud",aud -> aud!=null && aud.contains(settings.audience())),
+                new JwtClaimValidator<String>("sub",sub -> sub!=null && !sub.isBlank()),
+                new JwtClaimValidator<String>("jti",idClaim -> idClaim!=null && !idClaim.isBlank()),
+                new JwtClaimValidator<Instant>("iat",issued -> issued!=null && !issued.isAfter(Instant.now().plusSeconds(30))),
+                jwt -> jwt.getExpiresAt()!=null ? OAuth2TokenValidatorResult.success():OAuth2TokenValidatorResult.failure(new OAuth2Error("invalid_token"))));
+            decoders.put(id,verifier);
+        });
+        var pinned=Map.copyOf(decoders);
+        this.decoder=token -> {
+            try {
+                var header=SignedJWT.parse(token).getHeader();
+                var verifier=pinned.get(header.getKeyID());
+                if(!JWSAlgorithm.RS256.equals(header.getAlgorithm()) || verifier==null) throw new BadJwtException("Untrusted JWT key or algorithm");
+                return verifier.decode(token);
+            } catch(java.text.ParseException exception) { throw new BadJwtException("Invalid JWT",exception); }
+        };
     }
     public static String fingerprint(X509Certificate certificate) throws CertificateEncodingException,NoSuchAlgorithmException {
         return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(certificate.getEncoded()));

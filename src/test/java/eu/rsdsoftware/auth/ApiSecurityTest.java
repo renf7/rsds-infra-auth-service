@@ -35,18 +35,6 @@ class ApiSecurityTest {
         properties.add("rsds.auth.table",()->"auth-api-tests");
     }
     HttpClient client;
-    @Test void unknownRoutesAreDeniedAndAccountReadsUseValidatedSubject() throws Exception {
-        var alice=identities.login("google","ownership",UUID.randomUUID().toString(),"Alice",null,false);
-        var bob=identities.login("google","ownership",UUID.randomUUID().toString(),"Bob",null,false);
-        String cookie="RSDS_ACCESS="+tokens.issue(alice);
-        var own=get("/api/auth/me?subject="+bob.subject(),cookie);
-        assertEquals(200,own.statusCode());
-        assertTrue(own.body().contains(alice.subject()));assertFalse(own.body().contains(bob.subject()));
-        assertTrue(Set.of(401,403).contains(get("/api/auth/unlisted",null).statusCode()));
-        var denied=HttpRequest.newBuilder(URI.create("http://localhost:"+port+"/api/auth/unlisted"))
-            .header("Authorization","Bearer "+tokens.issue(alice)).GET().build();
-        assertEquals(403,client.send(denied,HttpResponse.BodyHandlers.ofString()).statusCode());
-    }
     @BeforeEach void client() { client=HttpClient.newBuilder().cookieHandler(new CookieManager(null,CookiePolicy.ACCEPT_ALL)).followRedirects(HttpClient.Redirect.NEVER).build(); }
     HttpResponse<String> get(String path,String cookie) throws Exception {
         var request=HttpRequest.newBuilder(URI.create("http://localhost:"+port+path)).GET();

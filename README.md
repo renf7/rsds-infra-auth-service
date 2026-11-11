@@ -140,4 +140,4 @@ The public legacy Sonar project `renf7_rsds-infra-auth-service` is separate from
 canonical CI project `rsds-infra-auth-service`; its failing S2092 report exposed the
 previous unconditional local `secure=false` setting. No rule/gate is suppressed.
 
-Certificate-only verification, default-deny routes and transient retention: [combined RSDSINFRA-18/42 runbook](docs/security/jwt-retention.md).
+Transient auth-record retention: [RSDSINFRA-42 runbook](docs/security/transient-retention.md).

@@ -1,20 +1,4 @@
-# RSDSINFRA-18 + RSDSINFRA-42
-
-The auth API explicitly allowlists public routes and denies unknown routes. Settings
-and current-account reads use only the validated JWT subject; clients cannot choose
-another account ID. PinnedJwtVerifier accepts a public `.crt` trust directory,
-issuer and audience without loading signing private keys. Only RS256 and known
-certificate fingerprints are accepted; issuer/audience/time/required identity claims
-are checked. Rotation uses overlapping certificates: add old+new public certs,
-roll out verifiers, switch auth signer, wait out old tokens, then remove old trust.
-Trust is loaded at startup: certificate changes require a controlled rollout.
-
-Future job/competence repositories must install this pattern with their own audience,
-explicit JOB_REPLY/COMPETENCE_BUILDER role checks and subject-based ownership queries.
-Do not give them the signing private key. Machine offer reads need a separate
-machine audience/scope and explicit user ownership context. These service-specific
-controllers/credentials are not fabricated in the auth repository and remain
-RSDSINFRA-18 acceptance work when those services are implemented.
+# RSDSINFRA-42: Transient auth retention
 
 ## Retention and application expiry
 

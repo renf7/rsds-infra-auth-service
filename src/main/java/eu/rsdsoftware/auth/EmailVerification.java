@@ -26,7 +26,7 @@ public final class EmailVerification {
         String flow=secret(); var values=new HashMap<String,String>();
         values.put("provider",profile.provider()); values.put("issuer",profile.issuer()); values.put("external",profile.externalSubject());
         values.put("name",profile.name()); values.put("expires",Long.toString(now()+600)); values.put("used","false"); values.put("attempts","0");
-        if(!store.insert("auth:v2:pending:"+EmailAddress.hash(flow),values)) throw new IllegalStateException("Challenge collision");
+        if(!store.insertExpiring("auth:v2:pending:"+EmailAddress.hash(flow),values,TransientRetention.deadline("auth:v2:pending:",values,86400))) throw new IllegalStateException("Challenge collision");
         if(profile.email()!=null && !profile.email().isBlank()) send(flow,profile.email());
         return flow;
     }
@@ -43,16 +43,16 @@ public final class EmailVerification {
             int count=active?Integer.parseInt(row.get().values().get("count")):0;
             if(count>=5) throw new IllegalArgumentException("Wait before requesting another email");
             next.put("count",Integer.toString(count+1)); next.put("until",active?row.orElseThrow().values().get("until"):Long.toString(now()+900));
-            acquired=row.isEmpty()?store.insert(globalKey,next):store.replace(globalKey,row.get().revision(),next);
+            acquired=row.isEmpty()?store.insertExpiring(globalKey,next,TransientRetention.deadline(globalKey,next,86400)):store.replaceExpiring(globalKey,row.get().revision(),next,TransientRetention.deadline(globalKey,next,86400));
         }
         if(!acquired) throw new IllegalArgumentException("Wait before requesting another email");
         String key="auth:v2:mail-rate:"+EmailAddress.hash(provider+":"+email); var next=Map.of("after",Long.toString(now()+60));
         for(int attempt=0;attempt<4;attempt++) {
             var row=store.get(key);
-            if(row.isEmpty()) {if(store.insert(key,next)) return;}
+            if(row.isEmpty()) {if(store.insertExpiring(key,next,TransientRetention.deadline(key,next,86400))) return;}
             else {
                 if(Long.parseLong(row.get().values().get("after"))>now()) throw new IllegalArgumentException("Wait before requesting another email");
-                if(store.replace(key,row.get().revision(),next)) return;
+                if(store.replaceExpiring(key,row.get().revision(),next,TransientRetention.deadline(key,next,86400))) return;
             }
         }
         throw new IllegalArgumentException("Wait before requesting another email");

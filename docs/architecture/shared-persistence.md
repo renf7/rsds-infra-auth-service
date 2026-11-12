@@ -28,7 +28,10 @@ errors propagate and must not be mistaken for conflicts. Retry an insert with th
 same logical key; read the winner after a conflict. Retrying stale CAS never silently
 overwrites a newer revision. Records own explicit schema versions in their values.
 
-No generic scan, filter DSL, SQL, secondary-index syntax, TTL, multi-row transaction,
+Optional expiry metadata delegates through insertExpiring/replaceExpiring unchanged;
+physical deletion is asynchronous and never replaces authorization/expiry validation.
+Adapters must explicitly support retention operations or throw unsupported-operation.
+No generic scan, filter DSL, SQL, secondary-index syntax, multi-row transaction,
 delete or pagination capability is claimed. Future offer/competence access patterns
 must define bounded owner-scoped list ports and opaque cursor semantics, indexes and
 migration before implementation. Do not simulate pagination with a whole-table scan.

@@ -23,4 +23,10 @@ public final class ScopedDocumentStore implements DocumentStore {
     @Override public Optional<Snapshot> get(String key) { return delegate.get(prefix+component(key)); }
     @Override public boolean insert(String key,Map<String,String> values) { return delegate.insert(prefix+component(key),values); }
     @Override public boolean replace(String key,String revision,Map<String,String> values) { return delegate.replace(prefix+component(key),revision,values); }
+    @Override public boolean insertExpiring(String key,Map<String,String> values,java.time.Instant deleteAfter) {
+        return delegate.insertExpiring(prefix+component(key),values,deleteAfter);
+    }
+    @Override public boolean replaceExpiring(String key,String revision,Map<String,String> values,java.time.Instant deleteAfter) {
+        return delegate.replaceExpiring(prefix+component(key),revision,values,deleteAfter);
+    }
 }

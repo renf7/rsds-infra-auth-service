@@ -63,4 +63,13 @@ abstract class DocumentStoreContract {
             assertEquals(1,winners); assertEquals("2",store.get(key).orElseThrow().values().get("schema"));
         }
     }
+    @Test void scopedRetentionMetadataSurvivesConditionalWrites() {
+        var scoped=new eu.rsdsoftware.auth.store.ScopedDocumentStore(store(),"auth",UUID.randomUUID().toString());
+        var expiry=java.time.Instant.now().plusSeconds(3600).truncatedTo(java.time.temporal.ChronoUnit.SECONDS);
+        assertTrue(scoped.insertExpiring("session",Map.of("schema","1"),expiry));
+        var first=scoped.get("session").orElseThrow(); assertEquals(expiry,first.deleteAfter());
+        assertTrue(scoped.replaceExpiring("session",first.revision(),Map.of("schema","2"),expiry.plusSeconds(60)));
+        assertFalse(scoped.replaceExpiring("session",first.revision(),Map.of("schema","3"),expiry));
+        assertEquals(expiry.plusSeconds(60),scoped.get("session").orElseThrow().deleteAfter());
+    }
 }

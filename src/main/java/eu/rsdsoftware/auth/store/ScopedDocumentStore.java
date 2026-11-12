@@ -20,13 +20,13 @@ public final class ScopedDocumentStore implements DocumentStore {
             throw new IllegalArgumentException("Scope and key components must be nonblank valid Unicode of at most 256 characters");
         return Base64.getUrlEncoder().withoutPadding().encodeToString(value.getBytes(StandardCharsets.UTF_8));
     }
-    @Override public Optional<Snapshot> get(String key) { return delegate.get(prefix+component(key)); }
-    @Override public boolean insert(String key,Map<String,String> values) { return delegate.insert(prefix+component(key),values); }
-    @Override public boolean replace(String key,String revision,Map<String,String> values) { return delegate.replace(prefix+component(key),revision,values); }
-    @Override public boolean insertExpiring(String key,Map<String,String> values,java.time.Instant deleteAfter) {
-        return delegate.insertExpiring(prefix+component(key),values,deleteAfter);
+    private String physicalKey(String key) {
+        String physical=prefix+component(key);
+        // Encoding and prefix are ASCII, so character count equals DynamoDB bytes.
+        if(physical.length()>2048) throw new IllegalArgumentException("Encoded persistence key exceeds 2048 bytes");
+        return physical;
     }
-    @Override public boolean replaceExpiring(String key,String revision,Map<String,String> values,java.time.Instant deleteAfter) {
-        return delegate.replaceExpiring(prefix+component(key),revision,values,deleteAfter);
-    }
+    @Override public Optional<Snapshot> get(String key) { return delegate.get(physicalKey(key)); }
+    @Override public boolean insert(String key,Map<String,String> values) { return delegate.insert(physicalKey(key),values); }
+    @Override public boolean replace(String key,String revision,Map<String,String> values) { return delegate.replace(physicalKey(key),revision,values); }
 }

@@ -63,13 +63,20 @@ abstract class DocumentStoreContract {
             assertEquals(1,winners); assertEquals("2",store.get(key).orElseThrow().values().get("schema"));
         }
     }
-    @Test void scopedRetentionMetadataSurvivesConditionalWrites() {
+    @Test void scopedRecordsCannotBypassTheAuthOnlyRetentionPolicy() {
         var scoped=new eu.rsdsoftware.auth.store.ScopedDocumentStore(store(),"auth",UUID.randomUUID().toString());
-        var expiry=java.time.Instant.now().plusSeconds(3600).truncatedTo(java.time.temporal.ChronoUnit.SECONDS);
-        assertTrue(scoped.insertExpiring("session",Map.of("schema","1"),expiry));
-        var first=scoped.get("session").orElseThrow(); assertEquals(expiry,first.deleteAfter());
-        assertTrue(scoped.replaceExpiring("session",first.revision(),Map.of("schema","2"),expiry.plusSeconds(60)));
-        assertFalse(scoped.replaceExpiring("session",first.revision(),Map.of("schema","3"),expiry));
-        assertEquals(expiry.plusSeconds(60),scoped.get("session").orElseThrow().deleteAfter());
+        var expiry=java.time.Instant.now().plusSeconds(3600);
+        assertThrows(UnsupportedOperationException.class,()->scoped.insertExpiring("session",Map.of("schema","1"),expiry));
+        assertTrue(scoped.insert("session",Map.of("schema","1")));
+        var first=scoped.get("session").orElseThrow();
+        assertThrows(UnsupportedOperationException.class,()->scoped.replaceExpiring("session",first.revision(),Map.of("schema","2"),expiry));
+        assertEquals(first,scoped.get("session").orElseThrow());
+    }
+    @Test void oversizedUnicodePhysicalKeysAreRejectedBeforeAdapterAccess() {
+        var scoped=new eu.rsdsoftware.auth.store.ScopedDocumentStore(store(),"界".repeat(256),"界".repeat(256));
+        assertThrows(IllegalArgumentException.class,()->scoped.insert("界".repeat(256),Map.of("schema","1")));
+        assertThrows(IllegalArgumentException.class,()->scoped.get("界".repeat(256)));
+        var valid=new eu.rsdsoftware.auth.store.ScopedDocumentStore(store(),"界".repeat(64),UUID.randomUUID().toString());
+        assertTrue(valid.insert("界".repeat(256),Map.of("schema","1")));
     }
 }

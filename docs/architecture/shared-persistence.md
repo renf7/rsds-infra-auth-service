@@ -10,7 +10,8 @@ New service repositories can compose the vendor-neutral DocumentStore through
 ScopedDocumentStore(service, tenant). Its scope:v1 prefix encodes service, tenant
 and logical key separately using unpadded URL-safe Base64 of valid UTF-8. Delimiters
 and Unicode cannot escape boundaries. Components are nonblank and <=256 Java chars;
-encoded keys fit DynamoDB's 2048-byte partition-key limit. Values remain immutable
+the complete encoded key is additionally checked against DynamoDB's 2048-byte limit
+before any adapter call. Values remain immutable
 string maps. This is a persistence namespace, not an authorization mechanism:
 services derive tenant from trusted JWT/server policy, never caller-supplied scope.
 
@@ -28,9 +29,10 @@ errors propagate and must not be mistaken for conflicts. Retry an insert with th
 same logical key; read the winner after a conflict. Retrying stale CAS never silently
 overwrites a newer revision. Records own explicit schema versions in their values.
 
-Optional expiry metadata delegates through insertExpiring/replaceExpiring unchanged;
-physical deletion is asynchronous and never replaces authorization/expiry validation.
-Adapters must explicitly support retention operations or throw unsupported-operation.
+Scoped records deliberately reject insertExpiring/replaceExpiring through the port's
+unsupported-operation defaults. Existing native TTL is restricted to legacy auth
+transient namespaces; new scope:v1 services must design their own reviewed retention
+policy before enabling physical expiry. Legacy auth retention remains unchanged.
 No generic scan, filter DSL, SQL, secondary-index syntax, multi-row transaction,
 delete or pagination capability is claimed. Future offer/competence access patterns
 must define bounded owner-scoped list ports and opaque cursor semantics, indexes and

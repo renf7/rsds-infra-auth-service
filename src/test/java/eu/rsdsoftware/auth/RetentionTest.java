@@ -5,6 +5,30 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class RetentionTest {
+    @Test void lowerPolicyCannotShortenPreviouslyAssignedOrBackfilledDeadlines() {
+        var store=new InMemoryDocumentStore();Instant now=Instant.parse("2030-01-01T00:00:00Z");
+        var longer=new RefreshService(store,Clock.fixed(now,ZoneOffset.UTC),2592000);
+        var shorter=new RefreshService(store,Clock.fixed(now,ZoneOffset.UTC),86400);
+        String token=longer.create("alice"),key="auth:v1:refresh:"+token.substring(0,token.indexOf('.'));
+        Instant assigned=store.get(key).orElseThrow().deleteAfter();
+        var next=shorter.rotate(token).orElseThrow();
+        assertEquals(assigned,store.get(key).orElseThrow().deleteAfter());
+        shorter.revoke(next.token());assertEquals(assigned,store.get(key).orElseThrow().deleteAfter());
+        var row=store.get(key).orElseThrow();var old=new HashMap<>(row.values());old.put("expires","123");
+        Instant backfilled=now.plusSeconds(86400);
+        store.replaceExpiring(key,row.revision(),old,backfilled);
+        shorter.revoke(next.token());assertEquals(backfilled,store.get(key).orElseThrow().deleteAfter());
+        assertThrows(IllegalArgumentException.class,()->new RefreshService(store,Clock.systemUTC(),1));
+    }
+    @Test void legacyRowGetsDeadlineOnlyOnce() {
+        var store=new InMemoryDocumentStore();var service=new RefreshService(store);
+        String token=service.create("alice"),key="auth:v1:refresh:"+token.substring(0,token.indexOf('.'));
+        var values=store.get(key).orElseThrow().values();
+        var legacy=new InMemoryDocumentStore();legacy.insert(key,values);
+        var returned=new RefreshService(legacy).rotate(token).orElseThrow();
+        assertNotNull(legacy.get(key).orElseThrow().deleteAfter());
+        new RefreshService(legacy).revoke(returned.token());
+    }
     @Test void refreshRotationAndRevocationKeepBoundedEvidence() {
         var store=new InMemoryDocumentStore();
         Instant now=Instant.parse("2030-01-01T00:00:00Z");
@@ -26,5 +50,9 @@ class RetentionTest {
         for(String key:List.of("auth:v3:account:alice","auth:v2:binding:alice","offers:alice","auth:v1:identity:alice"))
             assertThrows(IllegalArgumentException.class,()->TransientRetention.deadline(key,Map.of("expires","123"),86400));
         assertEquals(Instant.ofEpochSecond(86523),TransientRetention.deadline("auth:v2:mail-window:hash",Map.of("until","123"),86400));
+        assertEquals(Instant.ofEpochSecond(86523),TransientRetention.deadline("auth:v2:pending:hash",Map.of("expires","123"),86400));
+        assertEquals(Instant.ofEpochSecond(86523),TransientRetention.deadline("auth:v2:mail-rate:hash",Map.of("after","123"),86400));
+        assertThrows(IllegalArgumentException.class,()->TransientRetention.deadline("auth:v1:refresh:hash",Map.of("expires","0"),86400));
+        assertThrows(IllegalArgumentException.class,()->TransientRetention.deadline("auth:v1:refresh:hash",Map.of("expires","123"),2592001));
     }
 }

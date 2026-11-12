@@ -24,6 +24,9 @@ public final class RefreshService {
     private Instant deletion(Map<String,String> values) {
         return Instant.ofEpochSecond(Long.parseLong(values.get("expires"))).plusSeconds(retentionSeconds);
     }
+    private Instant deletion(DocumentStore.Snapshot snapshot) {
+        return snapshot.deleteAfter()==null?deletion(snapshot.values()):snapshot.deleteAfter();
+    }
     public record Rotation(String subject,String token) {}
     private String secret() { byte[] bytes=new byte[32]; random.nextBytes(bytes); return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes); }
     private static String hash(String value) {
@@ -50,7 +53,7 @@ public final class RefreshService {
             var replacement=new HashMap<>(values);
             String next=family+"."+secret();
             if(!matches) replacement.put("revoked","true"); else replacement.put("hash",hash(next));
-            if(store.replaceExpiring(key,row.get().revision(),replacement,deletion(values))) return matches?Optional.of(new Rotation(values.get("subject"),next)):Optional.empty();
+            if(store.replaceExpiring(key,row.get().revision(),replacement,deletion(row.get()))) return matches?Optional.of(new Rotation(values.get("subject"),next)):Optional.empty();
         }
         throw new IllegalStateException("Concurrent refresh update did not settle");
     }
@@ -62,7 +65,7 @@ public final class RefreshService {
         for(int attempt=0;attempt<4;attempt++) {
             var row=store.get(key); if(row.isEmpty()) return;
             var replacement=new HashMap<>(row.get().values()); replacement.put("revoked","true");
-            if(store.replaceExpiring(key,row.get().revision(),replacement,deletion(replacement))) return;
+            if(store.replaceExpiring(key,row.get().revision(),replacement,deletion(row.get()))) return;
         }
         throw new IllegalStateException("Refresh revocation failed");
     }

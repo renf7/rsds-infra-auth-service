@@ -24,15 +24,28 @@ public final class DynamoDocumentStore implements DocumentStore {
         var item = client.getItem(r -> r.tableName(table).key(key(key)).consistentRead(true)).item();
         if (item.isEmpty()) return Optional.empty();
         var values = item.get("document").m().entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey,e -> e.getValue().s()));
-        return Optional.of(new Snapshot(item.get("revision").s(),values));
+        var expiry=item.get("authDeleteAfter");
+        return Optional.of(new Snapshot(item.get("revision").s(),values,expiry==null?null:java.time.Instant.ofEpochSecond(Long.parseLong(expiry.n()))));
     }
-    @Override public boolean insert(String key, Map<String,String> values) { return write(key,null,values); }
+    @Override public boolean insert(String key, Map<String,String> values) { return write(key,null,values,null); }
     @Override public boolean replace(String key, String expectedRevision, Map<String,String> values) {
-        Objects.requireNonNull(expectedRevision); return write(key,expectedRevision,values);
+        Objects.requireNonNull(expectedRevision);
+        return write(key,expectedRevision,values,get(key).map(Snapshot::deleteAfter).orElse(null));
     }
-    private boolean write(String key, String revision, Map<String,String> values) {
+    @Override public boolean insertExpiring(String key, Map<String,String> values, java.time.Instant deleteAfter) {
+        return write(key,null,values,Objects.requireNonNull(deleteAfter));
+    }
+    @Override public boolean replaceExpiring(String key,String revision,Map<String,String> values,java.time.Instant deleteAfter) {
+        return write(key,Objects.requireNonNull(revision),values,Objects.requireNonNull(deleteAfter));
+    }
+    private boolean write(String key, String revision, Map<String,String> values,java.time.Instant deleteAfter) {
         var fields = values.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey,e -> AttributeValue.fromS(e.getValue())));
-        var item = Map.of("pk",AttributeValue.fromS(key),"revision",AttributeValue.fromS(UUID.randomUUID().toString()),"document",AttributeValue.fromM(fields));
+        var item = new HashMap<>(Map.of("pk",AttributeValue.fromS(key),"revision",AttributeValue.fromS(UUID.randomUUID().toString()),"document",AttributeValue.fromM(fields)));
+        if(deleteAfter!=null) {
+            // Shared table safety: never attach native TTL to an identity or another service.
+            eu.rsdsoftware.auth.TransientRetention.deadline(key,values,86400);
+            item.put("authDeleteAfter",AttributeValue.fromN(Long.toString(deleteAfter.getEpochSecond())));
+        }
         var request = PutItemRequest.builder().tableName(table).item(item);
         if (revision == null) request.conditionExpression("attribute_not_exists(pk)");
         else request.conditionExpression("revision = :expected").expressionAttributeValues(Map.of(":expected",AttributeValue.fromS(revision)));
